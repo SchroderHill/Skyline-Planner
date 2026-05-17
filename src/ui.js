@@ -67,6 +67,20 @@ export function renderApp(root, state, handlers) {
             </div>
             <p id="terrainNote" class="terrain-note"></p>
           </section>
+          <section class="user-data-panel">
+            <h2>User Data</h2>
+            <div class="user-data-imports">
+              <label class="user-data-file-label">
+                Import KML
+                <input id="kmlFile" type="file" accept=".kml" />
+              </label>
+              <label class="user-data-file-label">
+                Import Shapefile (.zip)
+                <input id="shapeFile" type="file" accept=".zip" />
+              </label>
+            </div>
+            <div id="userLayersList" class="user-layers-list"></div>
+          </section>
           <section>
             <h2>Inputs</h2>
             <dl>
@@ -135,6 +149,22 @@ export function renderApp(root, state, handlers) {
       const file = event.target.files?.[0];
       if (file) handlers.loadGeoTiff(file);
     });
+    root.querySelector("#kmlFile").addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) { handlers.loadKml(file); event.target.value = ""; }
+    });
+    root.querySelector("#shapeFile").addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) { handlers.loadShapefile(file); event.target.value = ""; }
+    });
+    root.querySelector("#userLayersList").addEventListener("click", (event) => {
+      const toggleBtn = event.target.closest("[data-toggle-layer]");
+      const removeBtn = event.target.closest("[data-remove-layer]");
+      const zoomBtn = event.target.closest("[data-zoom-layer]");
+      if (toggleBtn) handlers.toggleUserLayer(toggleBtn.dataset.toggleLayer);
+      if (removeBtn) handlers.removeUserLayer(removeBtn.dataset.removeLayer);
+      if (zoomBtn) handlers.zoomToUserLayer(zoomBtn.dataset.zoomLayer);
+    });
     root.dataset.mounted = "true";
   }
 
@@ -172,6 +202,7 @@ function updateApp(root, state) {
   root.querySelector("#settingArea").textContent = formatArea(polygonAreaSquareMetres(state.settingPolygon));
   root.querySelector("#skylineCount").textContent = String(state.skylines.length);
   root.querySelector("#results").innerHTML = renderResults(state.results);
+  root.querySelector("#userLayersList").innerHTML = renderUserLayers(state.userLayers ?? []);
 
   const dialog = root.querySelector("#assumptionsDialog");
   if (!dialog.open) {
@@ -276,6 +307,21 @@ function renderGeoTiffMeta(meta, error) {
       <dt>Extent</dt><dd>${fmt(bounds.minX)}, ${fmt(bounds.minY)} → ${fmt(bounds.maxX)}, ${fmt(bounds.maxY)}</dd>
     </dl>
   `;
+}
+
+function renderUserLayers(layers) {
+  if (!layers.length) {
+    return `<p class="muted user-layers-empty">No files imported yet.</p>`;
+  }
+  return layers.map((layer) => `
+    <div class="user-layer-item">
+      <span class="user-layer-swatch" style="background:${escapeHtml(layer.color)};"></span>
+      <span class="user-layer-name" title="${escapeHtml(layer.name)}">${escapeHtml(layer.name)}</span>
+      <button class="user-layer-btn" data-zoom-layer="${escapeHtml(layer.id)}" title="Zoom to layer">⌖</button>
+      <button class="user-layer-btn${layer.visible ? "" : " user-layer-btn--muted"}" data-toggle-layer="${escapeHtml(layer.id)}" title="${layer.visible ? "Hide layer" : "Show layer"}">${layer.visible ? "👁" : "👁"}</button>
+      <button class="user-layer-btn user-layer-btn--danger" data-remove-layer="${escapeHtml(layer.id)}" title="Remove layer">✕</button>
+    </div>
+  `).join("");
 }
 
 function escapeHtml(value) {
