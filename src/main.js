@@ -176,31 +176,128 @@ function paint() {
     exportGeoJson() {
       mapApi?.blur();
       const features = [];
-      if (state.skid) {
-        features.push({
-          type: "Feature",
-          properties: { type: "skid" },
-          geometry: { type: "Point", coordinates: state.skid }
-        });
-      }
+
+      const SEGMENT_COLORS = { green: "#178f48", red: "#d71920", neutral: "#2d3748" };
+      const STATUS_LABELS  = {
+        green:   "Adequate clearance",
+        red:     "Below minimum / no lift",
+        neutral: "Not assessed"
+      };
+
+      // ── 1. Harvest setting (polygon – rendered at bottom) ───────────────────
       if (state.settingPolygon) {
         features.push({
           type: "Feature",
-          properties: { type: "setting" },
+          properties: {
+            layer:           "setting",
+            label:           "Harvest setting",
+            "fill":          "#4f8f42",
+            "fill-opacity":  0.22,
+            "stroke":        "#1a8f3c",
+            "stroke-width":  3,
+            "stroke-opacity": 1
+          },
           geometry: { type: "Polygon", coordinates: state.settingPolygon }
         });
       }
+
+      // ── 2. User-imported layers ─────────────────────────────────────────────
+      (state.userLayers ?? []).forEach((layer) => {
+        (layer.geojson.features ?? []).forEach((feature) => {
+          features.push({
+            ...feature,
+            properties: {
+              ...feature.properties,
+              layer:             "user_data",
+              source_file:       layer.name,
+              "stroke":          layer.color,
+              "stroke-width":    2,
+              "stroke-opacity":  0.9,
+              "fill":            layer.color,
+              "fill-opacity":    0.2,
+              "marker-color":    layer.color
+            }
+          });
+        });
+      });
+
+      // ── 3. Skyline corridors with result summary attributes ─────────────────
+      const resultById = Object.fromEntries((state.results ?? []).map((r) => [r.id, r]));
       (state.skylines ?? []).forEach((skyline, i) => {
+        const id     = skyline.id ?? String(i + 1);
+        const result = resultById[id];
         features.push({
           type: "Feature",
-          properties: { type: "skyline", id: skyline.id ?? String(i + 1) },
+          properties: {
+            layer:              "skyline",
+            skyline_id:         id,
+            ...(result
+              ? {
+                  length_m:         Math.round(result.length),
+                  deflection_pct:   Number((result.deflectionPercent || 0).toFixed(1)),
+                  min_clearance_m:  Number(result.minClearance.toFixed(2)),
+                  pct_adequate:     Number(result.percentGreen.toFixed(1)),
+                  pct_below_min:    Number(result.percentRed.toFixed(1)),
+                  pass:             result.pass
+                }
+              : {}),
+            "stroke":           "#f8c400",
+            "stroke-width":     3,
+            "stroke-opacity":   0.95
+          },
           geometry: { type: "LineString", coordinates: skyline.coordinates }
         });
       });
+
+      // ── 4. Result segments – one feature per sample interval ───────────────
+      // These carry the full clearance data so a GIS user can categorise by
+      // status, clearance value, elevation etc.
+      (state.results ?? []).forEach((result) => {
+        result.samples.slice(1).forEach((sample, index) => {
+          const prev = result.samples[index];
+          features.push({
+            type: "Feature",
+            properties: {
+              layer:              "result_segment",
+              skyline_id:         result.id,
+              status:             sample.status,
+              status_label:       STATUS_LABELS[sample.status] ?? sample.status,
+              clearance_m:        Number(sample.clearance.toFixed(3)),
+              ground_elev_m:      Number(sample.groundElevation.toFixed(3)),
+              cable_elev_m:       Number(sample.cableElevation.toFixed(3)),
+              dist_along_m:       Number((sample.distanceAlongLine ?? 0).toFixed(1)),
+              "stroke":           SEGMENT_COLORS[sample.status] ?? SEGMENT_COLORS.neutral,
+              "stroke-width":     6,
+              "stroke-opacity":   0.95
+            },
+            geometry: {
+              type: "LineString",
+              coordinates: [prev.coordinate, sample.coordinate]
+            }
+          });
+        });
+      });
+
+      // ── 5. Skid / landing point (rendered on top) ──────────────────────────
+      if (state.skid) {
+        features.push({
+          type: "Feature",
+          properties: {
+            layer:          "skid",
+            label:          "Skid / Landing",
+            "marker-color": "#111827",
+            "marker-size":  "large",
+            "marker-symbol": "circle"
+          },
+          geometry: { type: "Point", coordinates: state.skid }
+        });
+      }
+
       if (!features.length) {
         window.alert("Nothing to export — draw some geometry first.");
         return;
       }
+
       const geojson = JSON.stringify({ type: "FeatureCollection", features }, null, 2);
       const blob = new Blob([geojson], { type: "application/geo+json" });
       const url = URL.createObjectURL(blob);
