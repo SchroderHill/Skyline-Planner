@@ -17,6 +17,7 @@ export function createInitialState() {
       warning: ""
     },
     results: [],
+    userLayers: [],
     updatedAt: null
   };
 }

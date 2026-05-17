@@ -137,14 +137,85 @@ export function createMap(container, state, onGeometryChange) {
     });
   }
 
+  // --- User layer tracking ---
+  // Keeps track of which user layer IDs have been added to the map.
+  // Must be cleared whenever the style reloads (all sources are wiped).
+  const userLayerIds = new Set();
+
+  function addUserLayerToMap(layer) {
+    const sourceId = `user-layer-${layer.id}`;
+    if (map.getSource(sourceId)) return;
+    map.addSource(sourceId, {
+      type: "geojson",
+      data: layer.visible ? layer.geojson : emptyCollection()
+    });
+    const color = layer.color ?? "#3B82F6";
+    map.addLayer({
+      id: `${sourceId}-fill`,
+      type: "fill",
+      source: sourceId,
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "fill-color": color, "fill-opacity": 0.2 }
+    });
+    map.addLayer({
+      id: `${sourceId}-line`,
+      type: "line",
+      source: sourceId,
+      filter: ["any", ["==", ["geometry-type"], "LineString"], ["==", ["geometry-type"], "Polygon"]],
+      paint: { "line-color": color, "line-width": 2, "line-opacity": 0.9 }
+    });
+    map.addLayer({
+      id: `${sourceId}-circle`,
+      type: "circle",
+      source: sourceId,
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-color": color,
+        "circle-radius": 5,
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 1.5
+      }
+    });
+    userLayerIds.add(layer.id);
+  }
+
+  function removeUserLayerFromMap(layerId) {
+    const sourceId = `user-layer-${layerId}`;
+    [`${sourceId}-fill`, `${sourceId}-line`, `${sourceId}-circle`].forEach((id) => {
+      if (map.getLayer(id)) map.removeLayer(id);
+    });
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+    userLayerIds.delete(layerId);
+  }
+
+  function syncUserLayers(state) {
+    const layers = state.userLayers ?? [];
+    const stateIds = new Set(layers.map((l) => l.id));
+    // Remove layers no longer in state
+    for (const id of [...userLayerIds]) {
+      if (!stateIds.has(id)) removeUserLayerFromMap(id);
+    }
+    // Add new layers; update data for existing ones
+    for (const layer of layers) {
+      const sourceId = `user-layer-${layer.id}`;
+      if (!map.getSource(sourceId)) {
+        addUserLayerToMap(layer);
+      } else {
+        map.getSource(sourceId).setData(layer.visible ? layer.geojson : emptyCollection());
+      }
+    }
+  }
+
   function initStyleLayers() {
     styleLoading = false;
+    userLayerIds.clear(); // style reload wipes all sources
     addBaseMapLayers(map, linzApiKey, sentinelInstanceId, currentState.baseMapMode);
     addTerrainSource(map);
     addParcelLayer(map);
     restoreDrawFeatures(draw, currentState);
     addProjectLayers(map);
     renderProjectMap(map, currentState);
+    syncUserLayers(currentState);
     fetchParcels(map, linzLdsKey);
     styleDrawVertices();
     if (pendingDrawMode) {
@@ -287,6 +358,7 @@ export function createMap(container, state, onGeometryChange) {
         map.once("style.load", initStyleLayers);
       } else if (!styleLoading) {
         renderProjectMap(map, currentState);
+        syncUserLayers(currentState);
       }
     },
     syncDraw(nextState) {
@@ -294,7 +366,31 @@ export function createMap(container, state, onGeometryChange) {
       if (map.loaded() && !styleLoading) {
         restoreDrawFeatures(draw, currentState);
         renderProjectMap(map, currentState);
+        syncUserLayers(currentState);
       }
+    },
+    flyToLayer(geojson) {
+      // Compute bounding box of all coordinates in the GeoJSON and fly to it.
+      const coords = [];
+      const collect = (geometry) => {
+        if (!geometry) return;
+        if (geometry.type === "Point") {
+          coords.push(geometry.coordinates);
+        } else if (geometry.type === "MultiPoint" || geometry.type === "LineString") {
+          coords.push(...geometry.coordinates);
+        } else if (geometry.type === "MultiLineString" || geometry.type === "Polygon") {
+          geometry.coordinates.forEach((ring) => coords.push(...ring));
+        } else if (geometry.type === "MultiPolygon") {
+          geometry.coordinates.forEach((poly) => poly.forEach((ring) => coords.push(...ring)));
+        } else if (geometry.type === "GeometryCollection") {
+          geometry.geometries.forEach(collect);
+        }
+      };
+      (geojson.features ?? []).forEach((f) => collect(f.geometry));
+      if (!coords.length) return;
+      const bounds = new mapboxgl.LngLatBounds(coords[0], coords[0]);
+      coords.slice(1).forEach((c) => bounds.extend(c));
+      map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 800 });
     },
     edit() {
       restoreDrawFeatures(draw, currentState);

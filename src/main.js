@@ -11,6 +11,7 @@ import {
   terrainWarningForMode
 } from "./terrain.js";
 import { GeoTiffTerrainProvider } from "./geotiff-terrain.js";
+import { parseKml, parseShapefile, nextLayerColor } from "./user-layers.js";
 import { renderApp } from "./ui.js";
 
 // Cache basemap tiles (Google, LINZ, Sentinel-2) in the browser for fast repeat loads
@@ -74,6 +75,56 @@ function paint() {
           }
         });
       }
+    },
+    async loadKml(file) {
+      try {
+        const geojson = await parseKml(file);
+        const layer = {
+          id: `ul-${Date.now()}`,
+          name: file.name,
+          type: "kml",
+          geojson,
+          visible: true,
+          color: nextLayerColor()
+        };
+        const userLayers = [...(state.userLayers ?? []), layer];
+        commit({ userLayers });
+        mapApi?.flyToLayer(geojson);
+      } catch (err) {
+        window.alert(`Failed to import KML: ${err.message}`);
+      }
+    },
+    async loadShapefile(file) {
+      try {
+        const geojson = await parseShapefile(file);
+        const layer = {
+          id: `ul-${Date.now()}`,
+          name: file.name,
+          type: "shapefile",
+          geojson,
+          visible: true,
+          color: nextLayerColor()
+        };
+        const userLayers = [...(state.userLayers ?? []), layer];
+        commit({ userLayers });
+        mapApi?.flyToLayer(geojson);
+      } catch (err) {
+        window.alert(`Failed to import shapefile: ${err.message}`);
+      }
+    },
+    toggleUserLayer(id) {
+      const userLayers = (state.userLayers ?? []).map((l) =>
+        l.id === id ? { ...l, visible: !l.visible } : l
+      );
+      commit({ userLayers });
+    },
+    removeUserLayer(id) {
+      const userLayers = (state.userLayers ?? []).filter((l) => l.id !== id);
+      commit({ userLayers });
+    },
+    zoomToUserLayer(id) {
+      const layer = (state.userLayers ?? []).find((l) => l.id === id);
+      if (layer) mapApi?.flyToLayer(layer.geojson);
     },
     changeBaseMapMode(baseMapMode) {
       commit({ baseMapMode });
