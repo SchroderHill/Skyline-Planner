@@ -18,7 +18,8 @@
 
 body {
   margin: 0;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -29,6 +30,7 @@ body {
 }
 
 #app {
+  height: 100%;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -67,12 +69,17 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 10px;
+  padding: 8px 12px;
   background:
     linear-gradient(140deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 250, 245, 0.98) 60%, rgba(236, 244, 238, 0.98) 100%);
   border-bottom: 1px solid #d3ddd1;
   flex-shrink: 0;
+}
+
+:root.is-embedded .topbar {
+  gap: 8px;
+  padding: 2px 8px;
 }
 
 h1,
@@ -84,9 +91,14 @@ p {
 
 h1 {
   font-family: "Bahnschrift", "Segoe UI Variable Display", sans-serif;
-  font-size: 23px;
-  margin-bottom: 2px;
+  font-size: 20px;
+  margin-bottom: 0;
   letter-spacing: 0.02em;
+}
+
+:root.is-embedded h1 {
+  font-size: 16px;
+  line-height: 1.15;
 }
 
 .topbar p,
@@ -96,27 +108,57 @@ h1 {
 }
 
 .topbar p {
-  font-size: 14px;
+  font-size: 12px;
+}
+
+:root.is-embedded .topbar p {
+  display: none;
 }
 
 .project-name-field {
   display: grid;
-  gap: 5px;
-  width: min(360px, 42vw);
-  font-size: 12px;
+  gap: 3px;
+  width: min(300px, 32vw);
+  font-size: 11px;
   font-weight: 800;
   color: #34403a;
   text-transform: uppercase;
+}
+
+:root.is-embedded .project-name-field {
+  gap: 2px;
+  width: min(240px, 34vw);
+}
+
+:root.is-embedded .project-name-field span {
+  display: none;
+}
+
+:root.is-embedded .project-name-field input {
+  padding: 6px 8px;
+}
+
+.project-name-field--in-panel {
+  width: 100%;
+  margin-bottom: 2px;
+  padding: 8px 9px;
+  border: 1px solid #d7ded2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.project-name-field--in-panel input {
+  font-size: 12px;
 }
 
 .project-name-field input {
   width: 100%;
   border: 1px solid #c7d0c0;
   border-radius: 8px;
-  padding: 9px 10px;
+  padding: 7px 9px;
   color: var(--ink);
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   text-transform: none;
 }
@@ -127,11 +169,15 @@ h1 {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) clamp(270px, 30vw, 320px);
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+:root.is-embedded .layout {
+  grid-template-columns: minmax(0, 1fr) clamp(235px, 27vw, 285px);
 }
 
 .map-pane {
@@ -403,7 +449,7 @@ h1 {
 }
 
 .panel {
-  padding: 18px;
+  padding: 12px;
   background:
     linear-gradient(180deg, rgba(250, 252, 248, 0.98) 0%, rgba(243, 248, 241, 0.98) 100%);
   border-left: 1px solid #d7ded2;
@@ -413,7 +459,12 @@ h1 {
   height: 100%;
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
+}
+
+:root.is-embedded .panel {
+  padding: 10px;
+  gap: 8px;
 }
 
 .workflow {
@@ -985,6 +1036,28 @@ dialog::backdrop {
 .user-layer-btn--danger {
   color: #8d1d1d;
   border-color: #d69b9b;
+}
+
+@media (max-height: 780px) {
+  .topbar {
+    padding: 6px 10px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .topbar p {
+    display: none;
+  }
+
+  .project-name-field {
+    width: min(260px, 34vw);
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr) clamp(250px, 31vw, 300px);
+  }
 }
 
 @media (max-width: 900px) {
