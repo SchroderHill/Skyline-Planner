@@ -13,6 +13,7 @@
     "@tmcw/togeojson": "^7.1.2",
     "geotiff": "^3.0.5",
     "mapbox-gl": "^3.11.1",
+    "pdfjs-dist": "^6.1.200",
     "proj4": "^2.20.8",
     "shpjs": "^6.2.0"
   },

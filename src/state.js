@@ -18,6 +18,12 @@ export function createInitialState() {
     },
     results: [],
     userLayers: [],
+    geopdfOverlays: [],
+    geopdfImport: {
+      loading: false,
+      error: "",
+      message: ""
+    },
     updatedAt: null
   };
 }
