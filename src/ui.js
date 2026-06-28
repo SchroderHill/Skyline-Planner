@@ -251,7 +251,7 @@ function updateApp(root, state) {
   root.querySelector("#print").disabled = !hasProjectData;
   root.querySelector("#exportGeoJson").disabled = !hasProjectData;
   root.querySelectorAll(".basemap-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mode === (state.baseMapMode ?? "outdoors"));
+    btn.classList.toggle("active", btn.dataset.mode === (state.baseMapMode ?? "google-satellite"));
   });
   root.querySelector("#terrainMode").value = state.terrainMode;
   root.querySelector("#terrainNote").innerHTML = terrainNote(state.terrainStatus);

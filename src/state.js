@@ -11,7 +11,7 @@ export function createInitialState() {
     skylines: [],
     assumptions: { ...DEFAULT_ASSUMPTIONS },
     assumptionsTouched: false,
-    baseMapMode: "outdoors",
+    baseMapMode: "google-satellite",
     terrainMode: TERRAIN_MODES.MAPBOX,
     terrainStatus: {
       source: terrainSourceNote(TERRAIN_MODES.MAPBOX),

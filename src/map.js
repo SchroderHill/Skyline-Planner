@@ -49,7 +49,7 @@ export function createMap(container, state, onGeometryChange) {
   if (!token) return createFallbackMap(container, state, onGeometryChange);
 
   let currentState = state;
-  let currentBaseStyle = STYLES[state.baseMapMode] ?? STYLES.outdoors;
+  let currentBaseStyle = STYLES[state.baseMapMode] ?? STYLES["google-satellite"];
   let styleLoading = false;
   let pendingDrawMode = null;
   mapboxgl.accessToken = token;
@@ -486,7 +486,7 @@ export function createMap(container, state, onGeometryChange) {
   return {
     render(nextState) {
       currentState = nextState;
-      const newStyle = STYLES[currentState.baseMapMode] ?? STYLES.outdoors;
+      const newStyle = STYLES[currentState.baseMapMode] ?? STYLES["google-satellite"];
       if (newStyle !== currentBaseStyle) {
         currentBaseStyle = newStyle;
         styleLoading = true;
@@ -654,7 +654,7 @@ function waitForMapRender(map) {
   });
 }
 
-function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "outdoors") {
+function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "google-satellite") {
   // Google satellite (hybrid: imagery + road labels baked in)
   if (!map.getSource(SOURCE_IDS.googleSatellite)) {
     map.addSource(SOURCE_IDS.googleSatellite, {
