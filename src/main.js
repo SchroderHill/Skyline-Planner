@@ -33,6 +33,19 @@ if (!root) {
   `;
   throw new Error("Missing #app mount element.");
 }
+
+const isEmbedded = (() => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+})();
+
+if (isEmbedded) {
+  document.documentElement.classList.add("is-embedded");
+}
+
 const mockTerrainProvider = new MockTerrainProvider();
 const geotiffTerrainProvider = new GeoTiffTerrainProvider();
 let state = loadState();

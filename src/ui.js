@@ -215,6 +215,17 @@ export function renderApp(root, state, handlers) {
       if (!input) return;
       handlers.setGeoPdfOverlayOpacity(input.dataset.geopdfOpacity, Number(input.value));
     });
+
+    // In iframe embeds, relocate the project name field into the sidebar to maximize map height.
+    if (document.documentElement.classList.contains("is-embedded")) {
+      const projectNameField = root.querySelector(".project-name-field");
+      const panel = root.querySelector(".panel");
+      if (projectNameField && panel) {
+        projectNameField.classList.add("project-name-field--in-panel");
+        panel.prepend(projectNameField);
+      }
+    }
+
     root.dataset.mounted = "true";
   }
 

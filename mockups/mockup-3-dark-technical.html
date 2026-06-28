@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup 3 – Dark Technical</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Consolas', 'Courier New', monospace; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    height: 48px;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .logo-badge {
+    background: #178f48;
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+  .logo-label { font-size: 13px; font-weight: 600; color: #e6edf3; }
+  .logo-sep { color: #484f58; margin: 0 2px; }
+  .project-input {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #e6edf3;
+    font-family: inherit;
+    width: 200px;
+  }
+  .project-input::placeholder { color: #484f58; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .topbtn {
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-family: inherit;
+  }
+  .topbtn-ghost { background: transparent; color: #8b949e; border-color: #30363d; }
+  .topbtn-green { background: #178f48; color: #fff; border-color: #178f48; }
+  .topbtn-danger { background: transparent; color: #f85149; border-color: #30363d; }
+
+  /* ── BODY ── */
+  .body { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── LEFT NAV ── */
+  .leftnav {
+    width: 200px;
+    background: #161b22;
+    border-right: 1px solid #30363d;
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .nav-section-title {
+    padding: 10px 12px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #484f58;
+  }
+  .nav-item {
+    display: flex; align-items: center;
+    padding: 7px 12px;
+    font-size: 11px;
+    color: #8b949e;
+    cursor: pointer;
+    gap: 8px;
+  }
+  .nav-item:hover { background: #21262d; color: #c9d1d9; }
+  .nav-item.active { background: #21262d; color: #58a6ff; border-left: 2px solid #58a6ff; }
+  .nav-item.done { color: #56d364; }
+  .nav-item.fail { color: #f85149; }
+  .nav-icon-sm { width: 14px; text-align: center; font-size: 12px; }
+  .nav-badge {
+    margin-left: auto;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 10px;
+  }
+  .nb-green { background: #003820; color: #56d364; }
+  .nb-red { background: #3d0000; color: #f85149; }
+  .nb-gray { background: #21262d; color: #484f58; }
+
+  .nav-sep { border-top: 1px solid #21262d; margin: 6px 0; }
+
+  /* Assumption minilist */
+  .assump-minilist { padding: 4px 12px 10px; }
+  .am-row {
+    display: flex; justify-content: space-between;
+    font-size: 10px;
+    padding: 2px 0;
+  }
+  .am-key { color: #484f58; }
+  .am-val { color: #e6edf3; font-family: 'Consolas', monospace; }
+
+  /* ── MAP ── */
+  .map-area {
+    flex: 1;
+    background: #1a2230;
+    position: relative;
+    overflow: hidden;
+  }
+  /* Dark terrain */
+  .map-area::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 45% at 38% 58%, rgba(40,65,40,.8) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 60% at 65% 38%, rgba(30,55,30,.7) 0%, transparent 65%),
+      linear-gradient(145deg, #192233 0%, #1d2d25 30%, #1a2a1e 55%, #1c2830 100%);
+  }
+  /* Contour glow lines */
+  .map-area::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(48deg, transparent, transparent 32px, rgba(80,255,120,.04) 32px, rgba(80,255,120,.04) 33px),
+      repeating-linear-gradient(-42deg, transparent, transparent 32px, rgba(80,255,120,.03) 32px, rgba(80,255,120,.03) 33px);
+  }
+
+  /* Setting boundary */
+  .setting-poly {
+    position: absolute;
+    top: 28%; left: 30%;
+    width: 46%; height: 46%;
+    border: 1px solid rgba(88,166,255,.4);
+    border-radius: 40% 60% 55% 45%;
+    background: rgba(88,166,255,.04);
+  }
+
+  /* Skyline lines */
+  .skyline-line {
+    position: absolute;
+    height: 2px;
+    transform-origin: left center;
+    border-radius: 1px;
+  }
+  .sl-pass { background: #56d364; box-shadow: 0 0 8px rgba(86,211,100,.7); }
+  .sl-fail { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,.7); }
+  .sl-1 { top: 45%; left: 26%; width: 40%; transform: rotate(-7deg); }
+  .sl-2 { top: 52%; left: 26%; width: 44%; transform: rotate(3deg); }
+  .sl-3 { top: 59%; left: 26%; width: 38%; transform: rotate(13deg); }
+
+  /* Skid marker */
+  .skid-marker {
+    position: absolute;
+    top: calc(52% - 10px);
+    left: calc(26% - 10px);
+    width: 20px; height: 20px;
+    background: #f0c040;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: #000;
+    box-shadow: 0 0 12px rgba(240,192,64,.5);
+    z-index: 10;
+  }
+
+  /* Endpoint dots */
+  .dot {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+  }
+  .dot-g { background: #56d364; box-shadow: 0 0 6px rgba(86,211,100,.5); }
+  .dot-r { background: #f85149; box-shadow: 0 0 6px rgba(248,81,73,.5); }
+
+  /* Corridor label tags */
+  .ctag {
+    position: absolute;
+    background: rgba(22,27,34,.85);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 700;
+    z-index: 8;
+    font-family: 'Consolas', monospace;
+  }
+  .ctag-g { color: #56d364; border: 1px solid rgba(86,211,100,.3); }
+  .ctag-r { color: #f85149; border: 1px solid rgba(248,81,73,.3); }
+
+  /* Grid overlay */
+  .grid-overlay {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(88,166,255,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,166,255,.04) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+  }
+
+  /* Watermark */
+  .watermark {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: rgba(22,27,34,.9);
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #484f58;
+    z-index: 25;
+  }
+
+  /* Map draw toolbar */
+  .draw-toolbar {
+    position: absolute;
+    top: 12px; right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 20;
+  }
+  .dtool {
+    background: rgba(22,27,34,.9);
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    padding: 7px 10px;
+    font-size: 10px;
+    font-family: 'Consolas', monospace;
+    color: #8b949e;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .dtool:hover { border-color: #484f58; color: #c9d1d9; }
+  .dtool.active { border-color: #56d364; color: #56d364; background: rgba(22,27,34,.95); }
+
+  /* Basemap picker */
+  .bm-picker {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    background: rgba(22,27,34,.9);
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 6px;
+    display: flex; gap: 4px;
+    z-index: 20;
+  }
+  .bm-s {
+    width: 34px; height: 34px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 7px;
+    font-weight: 700; color: #fff;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 2px;
+    border: 1px solid transparent;
+  }
+  .bm-s.on { border-color: #56d364; }
+  .bm-t { background: linear-gradient(135deg, #2a4a2a, #1a301a); }
+  .bm-h { background: linear-gradient(135deg, #2a3a4a, #1a2535); }
+  .bm-g { background: linear-gradient(135deg, #1a3020, #0d1e10); }
+  .bm-s2 { background: linear-gradient(135deg, #1a2840, #0d1825); }
+
+  /* ── RIGHT PANEL (profile + data) ── */
+  .right-panel {
+    width: 360px;
+    background: #161b22;
+    border-left: 1px solid #30363d;
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  /* Tabs */
+  .rp-tabs {
+    display: flex;
+    border-bottom: 1px solid #30363d;
+    background: #0d1117;
+  }
+  .rp-tab {
+    padding: 9px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #484f58;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    font-family: inherit;
+  }
+  .rp-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+  .rp-body { flex: 1; overflow-y: auto; }
+
+  /* Profile chart panel */
+  .profile-panel {
+    background: #0d1117;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 12px;
+  }
+  .panel-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #484f58;
+    margin-bottom: 8px;
+  }
+  .profile-selector { display: flex; gap: 4px; margin-bottom: 8px; }
+  .ps-btn {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #8b949e;
+  }
+  .ps-btn.active { background: #1a2d1a; border-color: #56d364; color: #56d364; }
+  .ps-btn.fail-active { background: #2d1a1a; border-color: #f85149; color: #f85149; }
+
+  /* SVG profile chart */
+  .profile-svg-wrap {
+    background: #0a0e14;
+    border: 1px solid #21262d;
+    border-radius: 5px;
+    padding: 6px;
+    position: relative;
+  }
+  .profile-svg { width: 100%; height: 80px; display: block; }
+
+  .profile-legend {
+    display: flex; gap: 12px; margin-top: 5px;
+    font-size: 9px;
+  }
+  .pl-item { display: flex; align-items: center; gap: 4px; color: #484f58; }
+  .pl-swatch { width: 10px; height: 3px; border-radius: 2px; }
+
+  /* Summary table */
+  .summary-section { padding: 12px; }
+  .st-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #484f58;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .summary-table th {
+    text-align: left;
+    font-size: 9px;
+    color: #484f58;
+    padding: 4px 6px;
+    border-bottom: 1px solid #21262d;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .summary-table td { padding: 6px 6px; border-bottom: 1px solid #21262d; }
+  .summary-table tr:hover td { background: #1a1f27; }
+  .td-id { color: #58a6ff; font-weight: 700; }
+  .td-pass { color: #56d364; font-weight: 700; }
+  .td-fail { color: #f85149; font-weight: 700; }
+  .td-warn { color: #e3b341; }
+  .td-mono { font-family: 'Consolas', monospace; }
+
+  /* Mini metric cards */
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 0 12px 12px; }
+  .metric-card {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 5px;
+    padding: 8px 10px;
+  }
+  .mc-label { font-size: 9px; color: #484f58; margin-bottom: 3px; }
+  .mc-value { font-size: 15px; font-weight: 700; font-family: 'Consolas', monospace; }
+  .mc-unit { font-size: 9px; color: #484f58; font-weight: 400; }
+  .mc-green { color: #56d364; }
+  .mc-red { color: #f85149; }
+  .mc-blue { color: #58a6ff; }
+
+  /* Log / notes section */
+  .log-section { padding: 0 12px 12px; }
+  .log-box {
+    background: #0a0e14;
+    border: 1px solid #21262d;
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 10px;
+    font-family: 'Consolas', monospace;
+    color: #8b949e;
+    line-height: 1.7;
+  }
+  .log-ok { color: #56d364; }
+  .log-err { color: #f85149; }
+  .log-info { color: #58a6ff; }
+  .log-warn { color: #e3b341; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <span class="logo-badge">SH</span>
+  <span class="logo-label">Skyline Planner</span>
+  <span class="logo-sep">/</span>
+  <input class="project-input" value="Taupo_Block14_2026" />
+  <div class="topbar-right">
+    <button class="topbtn topbtn-ghost">↓ geojson</button>
+    <button class="topbtn topbtn-ghost">🖨 report</button>
+    <button class="topbtn topbtn-green">▶ run calc</button>
+    <button class="topbtn topbtn-danger">⚠ reset</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="body">
+
+  <!-- LEFT NAV -->
+  <div class="leftnav">
+    <div class="nav-section-title">Inputs</div>
+    <div class="nav-item done">
+      <span class="nav-icon-sm">✓</span> skid
+      <span class="nav-badge nb-green">set</span>
+    </div>
+    <div class="nav-item done">
+      <span class="nav-icon-sm">✓</span> setting
+      <span class="nav-badge nb-green">48ha</span>
+    </div>
+    <div class="nav-item active">
+      <span class="nav-icon-sm">»</span> corridors
+      <span class="nav-badge nb-green">3</span>
+    </div>
+
+    <div class="nav-sep"></div>
+    <div class="nav-section-title">Tools</div>
+    <div class="nav-item">
+      <span class="nav-icon-sm">📍</span> place skid
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon-sm">⬡</span> draw setting
+    </div>
+    <div class="nav-item active">
+      <span class="nav-icon-sm">⟶</span> add corridor
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon-sm">✏</span> edit
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon-sm">🗑</span> delete
+    </div>
+
+    <div class="nav-sep"></div>
+    <div class="nav-section-title">Results</div>
+    <div class="nav-item done">
+      <span class="nav-icon-sm">SL1</span> skyline 1
+      <span class="nav-badge nb-green">pass</span>
+    </div>
+    <div class="nav-item done">
+      <span class="nav-icon-sm">SL2</span> skyline 2
+      <span class="nav-badge nb-green">pass</span>
+    </div>
+    <div class="nav-item fail">
+      <span class="nav-icon-sm">SL3</span> skyline 3
+      <span class="nav-badge nb-red">fail</span>
+    </div>
+
+    <div class="nav-sep"></div>
+    <div class="nav-section-title">Assumptions</div>
+    <div class="assump-minilist">
+      <div class="am-row"><span class="am-key">hauler</span><span class="am-val">Madill 071</span></div>
+      <div class="am-row"><span class="am-key">tower</span><span class="am-val">21.3m</span></div>
+      <div class="am-row"><span class="am-key">tailhold</span><span class="am-val">2m</span></div>
+      <div class="am-row"><span class="am-key">defl</span><span class="am-val">6%</span></div>
+      <div class="am-row"><span class="am-key">min_clr</span><span class="am-val">3m</span></div>
+      <div class="am-row"><span class="am-key">sag</span><span class="am-val">0m</span></div>
+      <div class="am-row"><span class="am-key">spacing</span><span class="am-val">25m</span></div>
+    </div>
+
+    <div class="nav-sep"></div>
+    <div class="nav-section-title">Data Layers</div>
+    <div class="nav-item">
+      <span class="nav-icon-sm">📂</span> import kml
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon-sm">📂</span> import shp
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="map-area">
+    <div class="grid-overlay"></div>
+    <div class="watermark">MOCKUP 3 – Dark Technical</div>
+
+    <!-- Setting polygon -->
+    <div class="setting-poly"></div>
+
+    <!-- Skylines -->
+    <div class="skyline-line sl-pass sl-1"></div>
+    <div class="skyline-line sl-pass sl-2"></div>
+    <div class="skyline-line sl-fail sl-3"></div>
+
+    <!-- Skid -->
+    <div class="skid-marker">⚓</div>
+
+    <!-- Endpoint dots -->
+    <div class="dot dot-g" style="top:43%;left:66%;"></div>
+    <div class="dot dot-g" style="top:52%;left:70%;"></div>
+    <div class="dot dot-r" style="top:65%;left:64%;"></div>
+
+    <!-- Corridor tags -->
+    <div class="ctag ctag-g" style="top:41%;left:46%">SL1 100%</div>
+    <div class="ctag ctag-g" style="top:50%;left:49%">SL2 93%</div>
+    <div class="ctag ctag-r" style="top:61%;left:44%">SL3 FAIL</div>
+
+    <!-- Draw toolbar -->
+    <div class="draw-toolbar">
+      <div class="dtool">⚙ assumptions</div>
+      <div class="dtool active">⟶ add corridor</div>
+      <div class="dtool">✏ edit</div>
+      <div class="dtool">🗑 delete</div>
+    </div>
+
+    <!-- Basemap picker -->
+    <div class="bm-picker">
+      <div class="bm-s bm-h on">Hill</div>
+      <div class="bm-s bm-t">Topo</div>
+      <div class="bm-s bm-g">Sat</div>
+      <div class="bm-s bm-s2">S2</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-tabs">
+      <div class="rp-tab active">profile</div>
+      <div class="rp-tab">table</div>
+      <div class="rp-tab">log</div>
+    </div>
+
+    <div class="rp-body">
+
+      <!-- Profile panel -->
+      <div class="profile-panel">
+        <div class="panel-title">Clearance Profile</div>
+        <div class="profile-selector">
+          <button class="ps-btn active">SL1</button>
+          <button class="ps-btn active">SL2</button>
+          <button class="ps-btn fail-active">SL3 ✗</button>
+        </div>
+
+        <div class="profile-svg-wrap">
+          <!-- SVG terrain profile -->
+          <svg class="profile-svg" viewBox="0 0 320 80" preserveAspectRatio="none">
+            <!-- Ground terrain -->
+            <polyline
+              fill="rgba(86,211,100,.12)"
+              stroke="none"
+              points="0,80 0,52 12,50 24,46 36,42 48,38 60,34 72,30 84,26 96,28 108,30 120,26 132,22 144,24 156,26 168,22 180,26 192,30 204,34 216,38 228,42 240,46 252,48 264,50 276,52 288,54 300,56 320,58 320,80"
+            />
+            <polyline
+              fill="none"
+              stroke="#3d6b42"
+              stroke-width="1.5"
+              points="0,52 12,50 24,46 36,42 48,38 60,34 72,30 84,26 96,28 108,30 120,26 132,22 144,24 156,26 168,22 180,26 192,30 204,34 216,38 228,42 240,46 252,48 264,50 276,52 288,54 300,56 320,58"
+            />
+            <!-- Cable line (SL1) -->
+            <polyline
+              fill="none"
+              stroke="#56d364"
+              stroke-width="2"
+              stroke-dasharray="none"
+              points="0,40 32,38 64,35 96,18 128,14 160,16 192,18 224,22 256,28 288,34 320,40"
+            />
+            <!-- Cable line (SL3 fail) -->
+            <polyline
+              fill="none"
+              stroke="#f85149"
+              stroke-width="2"
+              stroke-dasharray="4,3"
+              points="0,45 40,38 80,28 96,32 112,36 128,34 160,28 192,20 224,16 256,20 288,28 320,35"
+            />
+            <!-- Below-clearance markers -->
+            <circle cx="96" cy="32" r="3" fill="#f85149" opacity=".8"/>
+            <circle cx="108" cy="34" r="3" fill="#f85149" opacity=".8"/>
+            <!-- Min clearance reference line -->
+            <line x1="0" y1="46" x2="320" y2="46" stroke="#e3b341" stroke-width="1" stroke-dasharray="3,4" opacity=".5"/>
+            <text x="294" y="44" font-size="7" fill="#e3b341" font-family="Consolas">min</text>
+          </svg>
+          <div class="profile-legend">
+            <div class="pl-item"><div class="pl-swatch" style="background:#56d364"></div> SL1 cable</div>
+            <div class="pl-item"><div class="pl-swatch" style="background:#f85149"></div> SL3 cable</div>
+            <div class="pl-item"><div class="pl-swatch" style="background:#3d6b42"></div> terrain</div>
+            <div class="pl-item"><div class="pl-swatch" style="background:#e3b341"></div> min clr</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric cards -->
+      <div class="metric-grid" style="margin-top:12px;">
+        <div class="metric-card">
+          <div class="mc-label">Corridors</div>
+          <div class="mc-value mc-blue">3 <span class="mc-unit">total</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Pass</div>
+          <div class="mc-value mc-green">2 <span class="mc-unit">ok</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="mc-label">Fail</div>
+          <div class="mc-value mc-red">1 <span class="mc-unit">fail</span></div>
+        </div>
+      </div>
+
+      <!-- Summary table -->
+      <div class="summary-section">
+        <div class="st-label">Corridor Summary</div>
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Len</th>
+              <th>Defl</th>
+              <th>MinClr</th>
+              <th>Pass%</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-id td-mono">SL1</td>
+              <td class="td-mono">612m</td>
+              <td class="td-mono">6%</td>
+              <td class="td-mono td-pass">4.1m</td>
+              <td class="td-mono td-pass">100%</td>
+              <td class="td-pass">PASS</td>
+            </tr>
+            <tr>
+              <td class="td-id td-mono">SL2</td>
+              <td class="td-mono">847m</td>
+              <td class="td-mono">6%</td>
+              <td class="td-mono td-warn">3.2m</td>
+              <td class="td-mono td-warn">93%</td>
+              <td class="td-pass">PASS</td>
+            </tr>
+            <tr>
+              <td class="td-id td-mono">SL3</td>
+              <td class="td-mono">534m</td>
+              <td class="td-mono">6%</td>
+              <td class="td-mono td-fail">−0.8m</td>
+              <td class="td-mono td-fail">76%</td>
+              <td class="td-fail">FAIL</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Log -->
+      <div class="log-section">
+        <div class="st-label">Calculation Log</div>
+        <div class="log-box">
+          <div class="log-info">[INFO] terrain: mapbox elevation API</div>
+          <div class="log-info">[INFO] sample spacing: 25m</div>
+          <div class="log-ok">[OK]   SL1 — 25/25 samples clear</div>
+          <div class="log-warn">[WARN] SL2 — 2 samples near limit</div>
+          <div class="log-err">[FAIL] SL3 — 6 samples below 3m</div>
+          <div class="log-err">[FAIL] SL3 min clearance: −0.8m</div>
+          <div class="log-info">[INFO] report ready to export</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
