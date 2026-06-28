@@ -17,10 +17,22 @@ import { renderApp } from "./ui.js";
 
 // Cache basemap tiles (Google, LINZ, Sentinel-2) in the browser for fast repeat loads
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  const serviceWorkerPath = `${import.meta.env.BASE_URL}sw.js`;
+  navigator.serviceWorker.register(serviceWorkerPath).catch((error) => {
+    console.warn(`Service worker registration failed for ${serviceWorkerPath}.`, error);
+  });
 }
 
 const root = document.querySelector("#app");
+if (!root) {
+  document.body.innerHTML = `
+    <main style="padding:1rem;font-family:system-ui,sans-serif;line-height:1.5;">
+      <h1 style="margin:0 0 0.5rem;">Application failed to start</h1>
+      <p style="margin:0;">Missing application mount element (#app).</p>
+    </main>
+  `;
+  throw new Error("Missing #app mount element.");
+}
 const mockTerrainProvider = new MockTerrainProvider();
 const geotiffTerrainProvider = new GeoTiffTerrainProvider();
 let state = loadState();
@@ -506,4 +518,14 @@ function assumptionDiffers(value, baseline) {
   return String(value ?? "") !== String(baseline ?? "");
 }
 
-paint();
+try {
+  paint();
+} catch (error) {
+  console.error("Application startup failed.", error);
+  root.innerHTML = `
+    <section class="panel-section">
+      <h2>Application failed to start</h2>
+      <p>Reload the page to retry. If the problem continues, check browser console logs.</p>
+    </section>
+  `;
+}

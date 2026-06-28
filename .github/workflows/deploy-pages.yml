@@ -31,6 +31,11 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+          VITE_LINZ_API_KEY: ${{ secrets.VITE_LINZ_API_KEY }}
+          VITE_LINZ_LDS_KEY: ${{ secrets.VITE_LINZ_LDS_KEY }}
+          VITE_SENTINEL_INSTANCE_ID: ${{ secrets.VITE_SENTINEL_INSTANCE_ID }}
         run: npm run build
 
       - name: Configure Pages

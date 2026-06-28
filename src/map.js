@@ -53,14 +53,25 @@ export function createMap(container, state, onGeometryChange) {
   let styleLoading = false;
   let pendingDrawMode = null;
   mapboxgl.accessToken = token;
-  const map = new mapboxgl.Map({
-    container,
-    style: currentBaseStyle,
-    center: DEFAULT_MAP_VIEW.center,
-    zoom: DEFAULT_MAP_VIEW.zoom,
-    preserveDrawingBuffer: true,
-    maxTileCacheZoomLevels: 20  // keep tiles cached across more zoom levels in-session
-  });
+  let map;
+  try {
+    map = new mapboxgl.Map({
+      container,
+      style: currentBaseStyle,
+      center: DEFAULT_MAP_VIEW.center,
+      zoom: DEFAULT_MAP_VIEW.zoom,
+      preserveDrawingBuffer: true,
+      maxTileCacheZoomLevels: 20  // keep tiles cached across more zoom levels in-session
+    });
+  } catch (error) {
+    console.error("Map initialization failed. Falling back to no-map mode.", error);
+    return createFallbackMap(
+      container,
+      state,
+      onGeometryChange,
+      "Map failed to initialize. The prototype is running in no-map mode."
+    );
+  }
   const draw = new MapboxDraw({
     displayControlsDefault: false,
     controls: { point: true, polygon: true, line_string: true, trash: true }
@@ -1089,7 +1100,12 @@ function addTerrainSource(map) {
   map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1 });
 }
 
-function createFallbackMap(container, state, onGeometryChange) {
+function createFallbackMap(
+  container,
+  state,
+  onGeometryChange,
+  message = "Mapbox token not set. The prototype is running in no-map mode."
+) {
   container.innerHTML = `
     <div class="fallback-map">
       <div class="map-legend">
@@ -1097,7 +1113,7 @@ function createFallbackMap(container, state, onGeometryChange) {
         <span><i class="legend-red"></i> No lift</span>
         <span><i class="legend-skid"></i> Skid</span>
       </div>
-      <p>Mapbox token not set. The prototype is running in no-map mode.</p>
+      <p>${message}</p>
       <button data-demo>Load demo geometry</button>
     </div>
   `;
