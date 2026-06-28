@@ -1,5 +1,5 @@
 import "./styles.css";
-import { calculateProject } from "./clearance.js";
+import { DEFAULT_ASSUMPTIONS, calculateProject } from "./clearance.js";
 import { createMap } from "./map.js";
 import { printReport } from "./report.js";
 import { createInitialState, clearState, loadState, saveState } from "./state.js";
@@ -42,7 +42,16 @@ function paint() {
       saveState(state);
     },
     saveAssumptions(assumptions) {
-      commit({ assumptions: normalizeAssumptions(assumptions) });
+      commit({ assumptions: normalizeAssumptions(assumptions), assumptionsTouched: true });
+    },
+    startDrawSkid() {
+      mapApi?.startDrawSkid?.();
+    },
+    startDrawSetting() {
+      mapApi?.startDrawSetting?.();
+    },
+    startDrawCorridor() {
+      mapApi?.startDrawCorridor?.();
     },
     changeTerrainMode(terrainMode) {
       commit({
@@ -201,6 +210,10 @@ function paint() {
     },
     async calculate() {
       mapApi?.blur();
+      if (!assumptionsConfigured(state)) {
+        window.alert("Open assumptions, review values, and click Save before calculating.");
+        return;
+      }
       if (!state.skylines.length) {
         window.alert("Draw or load at least one skyline first.");
         return;
@@ -474,6 +487,23 @@ function geoPdfOverlayToFeatureCollection(overlay) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value)));
+}
+
+function assumptionsConfigured(projectState) {
+  if (projectState.assumptionsTouched) return true;
+  if ((projectState.results ?? []).length > 0) return true;
+  const assumptions = projectState.assumptions ?? {};
+  if (String(assumptions.haulerName ?? "").trim()) return true;
+  return Object.keys(DEFAULT_ASSUMPTIONS).some((key) => assumptionDiffers(assumptions[key], DEFAULT_ASSUMPTIONS[key]));
+}
+
+function assumptionDiffers(value, baseline) {
+  const currentNumber = Number(value);
+  const baselineNumber = Number(baseline);
+  if (Number.isFinite(currentNumber) && Number.isFinite(baselineNumber)) {
+    return Math.abs(currentNumber - baselineNumber) > 1e-6;
+  }
+  return String(value ?? "") !== String(baseline ?? "");
 }
 
 paint();

@@ -1,4 +1,5 @@
 import { formatArea, polygonAreaSquareMetres } from "./geometry.js";
+import { DEFAULT_ASSUMPTIONS } from "./clearance.js";
 
 export function renderApp(root, state, handlers) {
   if (!root.dataset.mounted) {
@@ -18,18 +19,27 @@ export function renderApp(root, state, handlers) {
           <div id="map"></div>
         </section>
         <aside class="panel">
-          <section class="workflow">
-            <h2>Workflow</h2>
-            <ol id="workflowSteps"></ol>
+          <section class="workflow workflow--guided">
+            <div class="workflow-head">
+              <h2>Guided Workflow</h2>
+              <p id="workflowHint" class="workflow-hint"></p>
+              <button id="workflowPrimaryAction" class="workflow-primary-action" type="button"></button>
+            </div>
+            <ol id="workflowSteps" class="workflow-steps"></ol>
           </section>
-          <div class="actions">
-            <button id="assumptions">Set assumptions</button>
-            <button id="calculate">Calculate</button>
-            <button id="edit">Edit corridors</button>
-            <button id="print">Print report</button>
-            <button id="exportGeoJson">Export GeoJSON</button>
-            <button id="reset" class="danger">Reset project</button>
+          <div class="workflow-ghost-controls" aria-hidden="true">
+            <button id="assumptions" type="button">Set assumptions</button>
+            <button id="calculate" type="button">Calculate</button>
           </div>
+          <section class="actions-panel">
+            <h2>Project Actions</h2>
+            <div class="actions">
+              <button id="edit">Edit corridors</button>
+              <button id="print">Print report</button>
+              <button id="exportGeoJson">Export GeoJSON</button>
+              <button id="reset" class="danger">Reset project</button>
+            </div>
+          </section>
           <section class="basemap-section">
             <h2>Basemap</h2>
             <div class="basemap-picker" id="basemapPicker">
@@ -99,10 +109,6 @@ export function renderApp(root, state, handlers) {
               <dt>Skylines</dt><dd id="skylineCount">0</dd>
             </dl>
           </section>
-          <section>
-            <h2>Skyline Summary</h2>
-            <div id="results"></div>
-          </section>
         </aside>
       </main>
       <dialog id="assumptionsDialog">
@@ -136,10 +142,19 @@ export function renderApp(root, state, handlers) {
     `;
 
     const dialog = root.querySelector("#assumptionsDialog");
-    root.querySelector("#projectName").addEventListener("input", (event) => handlers.rename(event.target.value));
-    root.querySelector("#assumptions").addEventListener("click", () => {
+    const openAssumptions = () => {
       if (!dialog.open) dialog.showModal();
-    });
+    };
+    const runWorkflowAction = (action) => {
+      if (action === "draw-skid") handlers.startDrawSkid();
+      if (action === "draw-setting") handlers.startDrawSetting();
+      if (action === "draw-corridor") handlers.startDrawCorridor();
+      if (action === "open-assumptions") openAssumptions();
+      if (action === "calculate") handlers.calculate();
+    };
+
+    root.querySelector("#projectName").addEventListener("input", (event) => handlers.rename(event.target.value));
+    root.querySelector("#assumptions").addEventListener("click", openAssumptions);
     root.querySelector("#saveAssumptions").addEventListener("click", () => handlers.saveAssumptions(readForm(dialog)));
     dialog.querySelector("[name=\"landingTowerPreset\"]").addEventListener("change", () => updateTowerHeightFields(dialog));
     root.querySelector("#calculate").addEventListener("click", handlers.calculate);
@@ -147,6 +162,15 @@ export function renderApp(root, state, handlers) {
     root.querySelector("#print").addEventListener("click", handlers.print);
     root.querySelector("#exportGeoJson").addEventListener("click", handlers.exportGeoJson);
     root.querySelector("#reset").addEventListener("click", handlers.reset);
+    root.querySelector("#workflowSteps").addEventListener("click", (event) => {
+      const actionButton = event.target.closest("[data-workflow-action]");
+      if (!actionButton || actionButton.disabled) return;
+      runWorkflowAction(actionButton.dataset.workflowAction);
+    });
+    root.querySelector("#workflowPrimaryAction").addEventListener("click", (event) => {
+      if (event.currentTarget.disabled) return;
+      runWorkflowAction(event.currentTarget.dataset.workflowAction);
+    });
     root.querySelector("#basemapPicker").addEventListener("click", (event) => {
       const btn = event.target.closest(".basemap-btn");
       if (btn) handlers.changeBaseMapMode(btn.dataset.mode);
@@ -201,17 +225,20 @@ function updateApp(root, state) {
   const projectName = root.querySelector("#projectName");
   if (document.activeElement !== projectName) projectName.value = state.projectName;
 
-  root.querySelector("#workflowSteps").innerHTML = `
-    ${workflowStep("Draw skid / landing", Boolean(state.skid))}
-    ${workflowStep("Draw setting boundary", Boolean(state.settingPolygon))}
-    ${workflowStep("Draw skyline corridors", state.skylines.length > 0)}
-    ${workflowStep("Set hauler assumptions", hasAssumptions(state.assumptions))}
-    ${workflowStep(state.results.length ? "Recalculate clearance" : "Calculate clearance", state.results.length > 0)}
-    ${workflowStep("Edit corridors as needed", false)}
-    ${workflowStep("Print preliminary report", false)}
-  `;
+  const workflow = workflowModel(state);
+  root.querySelector("#workflowHint").textContent = workflow.hint;
+  root.querySelector("#workflowSteps").innerHTML = renderWorkflowSteps(workflow.steps);
+  const workflowPrimaryAction = root.querySelector("#workflowPrimaryAction");
+  workflowPrimaryAction.textContent = workflow.primaryAction.actionLabel;
+  workflowPrimaryAction.dataset.workflowAction = workflow.primaryAction.action;
+  workflowPrimaryAction.disabled = !workflow.primaryAction.enabled;
 
   root.querySelector("#calculate").textContent = state.results.length ? "Recalculate" : "Calculate";
+  root.querySelector("#calculate").disabled = !workflow.canCalculate;
+  root.querySelector("#edit").disabled = !state.skylines.length;
+  const hasProjectData = Boolean(state.skid || state.settingPolygon || state.skylines.length || state.results.length);
+  root.querySelector("#print").disabled = !hasProjectData;
+  root.querySelector("#exportGeoJson").disabled = !hasProjectData;
   root.querySelectorAll(".basemap-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.mode === (state.baseMapMode ?? "outdoors"));
   });
@@ -227,7 +254,6 @@ function updateApp(root, state) {
   root.querySelector("#settingStatus").textContent = state.settingPolygon ? "1 polygon" : "Not drawn";
   root.querySelector("#settingArea").textContent = formatArea(polygonAreaSquareMetres(state.settingPolygon));
   root.querySelector("#skylineCount").textContent = String(state.skylines.length);
-  root.querySelector("#results").innerHTML = renderResults(state.results);
   root.querySelector("#userLayersList").innerHTML = renderUserLayers(state.userLayers ?? []);
   root.querySelector("#geoPdfStatus").innerHTML = renderGeoPdfStatus(state.geopdfImport);
   root.querySelector("#geoPdfOverlaysList").innerHTML = renderGeoPdfOverlays(state.geopdfOverlays ?? []);
@@ -278,43 +304,111 @@ function towerPresetForMetres(metres) {
   return match ? String(match) : "custom";
 }
 
-function renderResults(results) {
-  if (!results.length) return "<p class=\"muted\">No results yet.</p>";
-  return `
-    <table class="summary-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Len</th>
-          <th>Defl</th>
-          <th>Min</th>
-          <th>Clear</th>
-          <th>No lift</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${results.map((result) => `
-          <tr class="${result.pass ? "pass" : "fail"}">
-            <td>${escapeHtml(result.id)}</td>
-            <td>${result.length.toFixed(0)} m</td>
-            <td>${Number(result.deflectionPercent || 0).toFixed(0)}%</td>
-            <td>${result.minClearance.toFixed(1)} m</td>
-            <td>${result.percentGreen.toFixed(0)}%</td>
-            <td>${result.percentRed.toFixed(0)}%</td>
-          </tr>
-          ${result.pass ? "" : `<tr class="warning-row"><td colspan="6">Warning: section below minimum clearance.</td></tr>`}
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-function workflowStep(label, complete) {
-  return `<li class="${complete ? "complete" : ""}"><span>${complete ? "OK" : ""}</span>${escapeHtml(label)}</li>`;
+function renderWorkflowSteps(steps) {
+  return steps.map((step, index) => `
+    <li class="workflow-step${step.complete ? " complete" : ""}${step.current ? " current" : ""}${step.enabled ? "" : " blocked"}">
+      <span class="workflow-step__marker">${step.complete ? "OK" : String(index + 1)}</span>
+      <div class="workflow-step__body">
+        <h3>${escapeHtml(step.label)}</h3>
+        <p>${escapeHtml(step.detail)}</p>
+        <button class="workflow-step__action" data-workflow-action="${escapeHtml(step.action)}" ${step.enabled ? "" : "disabled"}>${escapeHtml(step.actionLabel)}</button>
+      </div>
+    </li>
+  `).join("");
 }
 
 function hasAssumptions(assumptions) {
-  return Boolean(assumptions.haulerName || assumptions.landingTowerHeight);
+  if (!assumptions) return false;
+  if (String(assumptions.haulerName ?? "").trim()) return true;
+  return Object.keys(DEFAULT_ASSUMPTIONS).some((key) => assumptionChangedFromDefault(assumptions[key], DEFAULT_ASSUMPTIONS[key]));
+}
+
+function assumptionChangedFromDefault(value, baseline) {
+  const n1 = Number(value);
+  const n2 = Number(baseline);
+  if (Number.isFinite(n1) && Number.isFinite(n2)) {
+    return Math.abs(n1 - n2) > 1e-6;
+  }
+  return String(value ?? "") !== String(baseline ?? "");
+}
+
+function workflowModel(state) {
+  const hasSkid = Boolean(state.skid);
+  const hasSetting = Boolean(state.settingPolygon);
+  const hasCorridors = (state.skylines ?? []).length > 0;
+  const assumptionsReady = Boolean(state.assumptionsTouched) || hasAssumptions(state.assumptions) || (state.results ?? []).length > 0;
+  const hasResults = (state.results ?? []).length > 0;
+  const canCalculate = hasCorridors && assumptionsReady;
+
+  const steps = [
+    {
+      label: "Place skid / landing",
+      detail: hasSkid ? "Landing point is set on map." : "Start by placing the skid point.",
+      complete: hasSkid,
+      enabled: true,
+      action: "draw-skid",
+      actionLabel: hasSkid ? "Adjust skid" : "Start"
+    },
+    {
+      label: "Draw setting boundary",
+      detail: hasSetting ? "Setting polygon is defined." : "Map the harvest setting polygon.",
+      complete: hasSetting,
+      enabled: hasSkid,
+      action: "draw-setting",
+      actionLabel: hasSetting ? "Adjust setting" : "Draw boundary"
+    },
+    {
+      label: "Draw skyline corridors",
+      detail: hasCorridors ? `${state.skylines.length} corridor${state.skylines.length === 1 ? "" : "s"} prepared.` : "Add at least one skyline corridor.",
+      complete: hasCorridors,
+      enabled: hasSkid && hasSetting,
+      action: "draw-corridor",
+      actionLabel: hasCorridors ? "Add / edit corridors" : "Draw corridor"
+    },
+    {
+      label: "Confirm assumptions",
+      detail: assumptionsReady ? "Assumptions are saved." : "Set hauler and clearance assumptions.",
+      complete: assumptionsReady,
+      enabled: hasCorridors,
+      action: "open-assumptions",
+      actionLabel: assumptionsReady ? "Review assumptions" : "Set assumptions"
+    },
+    {
+      label: hasResults ? "Recalculate and review" : "Calculate clearance",
+      detail: hasResults ? "Results are ready." : "Run clearance calculation once inputs are ready.",
+      complete: hasResults,
+      enabled: canCalculate,
+      action: "calculate",
+      actionLabel: hasResults ? "Recalculate" : "Calculate"
+    }
+  ];
+
+  const currentIndex = steps.findIndex((step) => !step.complete);
+  if (currentIndex >= 0) steps[currentIndex].current = true;
+
+  let hint = "Use the steps in order to complete a full planning run.";
+  if (!hasSkid) hint = "Step 1: Place the skid / landing point on the map.";
+  else if (!hasSetting) hint = "Step 2: Draw the harvest setting boundary.";
+  else if (!hasCorridors) hint = "Step 3: Draw one or more skyline corridors from skid to tailhold.";
+  else if (!assumptionsReady) hint = "Step 4: Set assumptions before calculation.";
+  else if (!hasResults) hint = "Step 5: Run Calculate to evaluate clearances.";
+  else hint = "Clearance results are ready. Use project actions to refine, export, or print.";
+
+  const primaryActionStep = steps.find((step) => step.current)
+    ?? steps.find((step) => !step.complete && step.enabled)
+    ?? steps.find((step) => step.enabled)
+    ?? steps[0];
+
+  return {
+    steps,
+    hint,
+    canCalculate,
+    primaryAction: {
+      action: primaryActionStep.action,
+      actionLabel: primaryActionStep.actionLabel,
+      enabled: Boolean(primaryActionStep.enabled)
+    }
+  };
 }
 
 function renderGeoTiffMeta(meta, error) {
@@ -358,9 +452,9 @@ function renderUserLayers(layers) {
     <div class="user-layer-item">
       <span class="user-layer-swatch" style="background:${escapeHtml(layer.color)};"></span>
       <span class="user-layer-name" title="${escapeHtml(layer.name)}">${escapeHtml(layer.name)}</span>
-      <button class="user-layer-btn" data-zoom-layer="${escapeHtml(layer.id)}" title="Zoom to layer">⌖</button>
-      <button class="user-layer-btn${layer.visible ? "" : " user-layer-btn--muted"}" data-toggle-layer="${escapeHtml(layer.id)}" title="${layer.visible ? "Hide layer" : "Show layer"}">${layer.visible ? "👁" : "👁"}</button>
-      <button class="user-layer-btn user-layer-btn--danger" data-remove-layer="${escapeHtml(layer.id)}" title="Remove layer">✕</button>
+      <button class="user-layer-btn" data-zoom-layer="${escapeHtml(layer.id)}" title="Zoom to layer">Zoom</button>
+      <button class="user-layer-btn${layer.visible ? "" : " user-layer-btn--muted"}" data-toggle-layer="${escapeHtml(layer.id)}" title="${layer.visible ? "Hide layer" : "Show layer"}">${layer.visible ? "Hide" : "Show"}</button>
+      <button class="user-layer-btn user-layer-btn--danger" data-remove-layer="${escapeHtml(layer.id)}" title="Remove layer">Remove</button>
     </div>
   `).join("");
 }
@@ -381,9 +475,9 @@ function renderGeoPdfOverlays(overlays) {
         <div class="user-layer-item">
           <span class="user-layer-swatch geopdf-layer-swatch"></span>
           <span class="user-layer-name" title="${escapeHtml(overlay.name)}">${escapeHtml(overlay.name)}</span>
-          <button class="user-layer-btn" data-zoom-geopdf="${escapeHtml(overlay.id)}" title="Zoom to overlay">⌖</button>
-          <button class="user-layer-btn${overlay.visible ? "" : " user-layer-btn--muted"}" data-toggle-geopdf="${escapeHtml(overlay.id)}" title="${overlay.visible ? "Hide overlay" : "Show overlay"}">${overlay.visible ? "👁" : "👁"}</button>
-          <button class="user-layer-btn user-layer-btn--danger" data-remove-geopdf="${escapeHtml(overlay.id)}" title="Remove overlay">✕</button>
+          <button class="user-layer-btn" data-zoom-geopdf="${escapeHtml(overlay.id)}" title="Zoom to overlay">Zoom</button>
+          <button class="user-layer-btn${overlay.visible ? "" : " user-layer-btn--muted"}" data-toggle-geopdf="${escapeHtml(overlay.id)}" title="${overlay.visible ? "Hide overlay" : "Show overlay"}">${overlay.visible ? "Hide" : "Show"}</button>
+          <button class="user-layer-btn user-layer-btn--danger" data-remove-geopdf="${escapeHtml(overlay.id)}" title="Remove overlay">Remove</button>
         </div>
         <label class="geopdf-opacity-row">
           <span>Opacity</span>

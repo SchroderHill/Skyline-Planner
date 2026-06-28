@@ -449,6 +449,29 @@ export function createMap(container, state, onGeometryChange) {
     });
   });
 
+  function enterGuidedDrawMode(mode) {
+    stopPulse();
+    if (styleLoading || !map.isStyleLoaded()) {
+      pendingDrawMode = mode;
+      return;
+    }
+    draw.changeMode(mode);
+  }
+
+  function selectOrDraw(geometryType, drawMode) {
+    const feature = draw.getAll().features.find((candidate) => candidate.geometry.type === geometryType);
+    if (!feature) {
+      enterGuidedDrawMode(drawMode);
+      return;
+    }
+    stopPulse();
+    if (geometryType === "Polygon" || geometryType === "LineString") {
+      draw.changeMode("direct_select", { featureId: feature.id });
+      return;
+    }
+    draw.changeMode("simple_select", { featureIds: [feature.id] });
+  }
+
   return {
     render(nextState) {
       currentState = nextState;
@@ -503,6 +526,15 @@ export function createMap(container, state, onGeometryChange) {
     },
     edit() {
       restoreDrawFeatures(draw, currentState);
+    },
+    startDrawSkid() {
+      selectOrDraw("Point", "draw_point");
+    },
+    startDrawSetting() {
+      selectOrDraw("Polygon", "draw_polygon");
+    },
+    startDrawCorridor() {
+      enterGuidedDrawMode("draw_line_string");
     },
     blur() {
       // Exit any active draw/edit mode and clear pulse — call this before panel actions
@@ -1087,6 +1119,9 @@ function createFallbackMap(container, state, onGeometryChange) {
       state = nextState;
     },
     edit() {},
+    startDrawSkid() {},
+    startDrawSetting() {},
+    startDrawCorridor() {},
     hasTerrain() {
       return false;
     },

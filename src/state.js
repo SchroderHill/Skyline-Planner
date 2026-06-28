@@ -10,6 +10,7 @@ export function createInitialState() {
     settingPolygon: null,
     skylines: [],
     assumptions: { ...DEFAULT_ASSUMPTIONS },
+    assumptionsTouched: false,
     baseMapMode: "outdoors",
     terrainMode: TERRAIN_MODES.MAPBOX,
     terrainStatus: {
