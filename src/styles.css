@@ -96,6 +96,7 @@ h1 {
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -108,25 +109,28 @@ h1 {
   overflow: hidden;
 }
 
+.basemap-section {
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid #d7ded2;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
 .basemap-picker {
-  position: absolute;
-  bottom: 28px;
-  right: 14px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
 .basemap-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 10px 5px 5px;
-  background: rgba(255, 255, 255, 0.94);
+  gap: 6px;
+  padding: 5px 8px 5px 5px;
+  background: #f4f7f2;
   border: 2px solid transparent;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(23, 32, 51, 0.18);
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -147,12 +151,16 @@ h1 {
 
 .basemap-thumb {
   display: inline-block;
-  width: 42px;
-  height: 32px;
+  width: 36px;
+  height: 26px;
   border-radius: 4px;
   flex-shrink: 0;
   background-size: cover;
   background-position: center;
+}
+
+.basemap-btn > span:last-child {
+  white-space: nowrap;
 }
 
 .basemap-thumb--outdoors {
@@ -257,6 +265,68 @@ h1 {
   flex: 0 0 auto;
 }
 
+.skyline-profile-popup .mapboxgl-popup-content {
+  min-width: 248px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5c4;
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(23, 32, 51, 0.22);
+}
+
+.skyline-profile-popup .mapboxgl-popup-tip {
+  border-top-color: #ffffff;
+}
+
+.skyline-popup-card h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.25;
+  color: #172033;
+}
+
+.skyline-popup-chart {
+  margin: 0 0 8px;
+}
+
+.skyline-popup-chart svg {
+  display: block;
+  width: 100%;
+  height: 86px;
+  border-radius: 5px;
+}
+
+.skyline-popup-chart figcaption {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #657060;
+}
+
+.skyline-popup-card dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 3px 12px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.skyline-popup-card dt {
+  color: #536052;
+}
+
+.skyline-popup-card dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+  color: #172033;
+}
+
+.skyline-popup-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #657060;
+}
+
 .legend-green,
 .legend-red {
   width: 28px;
@@ -305,8 +375,8 @@ h1 {
   background: #fafcf8;
   border-left: 1px solid #d7ded2;
   overflow-y: auto;
-  height: 100%;
   min-height: 0;
+  height: 100%;
 }
 
 .workflow {
@@ -608,9 +678,69 @@ dialog::backdrop {
   gap: 4px;
 }
 
+.geopdf-status {
+  margin-top: 8px;
+}
+
+.geopdf-message {
+  font-size: 12px;
+}
+
+.geopdf-error {
+  margin: 0;
+  padding: 8px;
+  background: #fff4f4;
+  border: 1px solid #d69b9b;
+  border-radius: 5px;
+  color: #8d1d1d;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 .user-layers-empty {
   font-size: 12px;
   margin: 0;
+}
+
+.geopdf-layer-item {
+  display: grid;
+  gap: 4px;
+}
+
+.geopdf-layer-swatch {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+}
+
+.geopdf-opacity-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  font-size: 11px;
+  color: #536052;
+}
+
+.geopdf-opacity-row input[type="range"] {
+  width: 100%;
+}
+
+.geopdf-opacity-row strong {
+  color: #172033;
+  font-size: 11px;
+}
+
+.geopdf-meta {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 11px;
+  color: #657060;
+}
+
+.geopdf-meta--warn {
+  color: #8d1d1d;
+  font-weight: 700;
 }
 
 .user-layer-item {
@@ -660,9 +790,17 @@ dialog::backdrop {
 }
 
 @media (max-width: 900px) {
-  .topbar,
-  .layout {
+  .topbar {
     display: block;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .map-pane {
+    min-height: 320px;
   }
 
   .project-name-field {
@@ -673,6 +811,7 @@ dialog::backdrop {
   .panel {
     border-left: 0;
     border-top: 1px solid #d7ded2;
+    max-height: 42vh;
   }
 }
 

@@ -86,6 +86,13 @@ export function createMap(container, state, onGeometryChange) {
 
   let sentinelLoadingDone = false;
   let sentinelLoadingTimer = null;
+  const skylinePopup = new mapboxgl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    offset: 10,
+    className: "skyline-profile-popup"
+  });
+  let skylineHoverEventsBound = false;
 
   function hideSentinelOverlay() {
     sentinelLoadingDone = true;
@@ -141,6 +148,15 @@ export function createMap(container, state, onGeometryChange) {
   // Keeps track of which user layer IDs have been added to the map.
   // Must be cleared whenever the style reloads (all sources are wiped).
   const userLayerIds = new Set();
+  const geoPdfOverlayIds = new Set();
+
+  function geoPdfSourceId(overlayId) {
+    return `geopdf-overlay-${overlayId}`;
+  }
+
+  function geoPdfLayerId(overlayId) {
+    return `${geoPdfSourceId(overlayId)}-raster`;
+  }
 
   function addUserLayerToMap(layer) {
     const sourceId = `user-layer-${layer.id}`;
@@ -206,15 +222,77 @@ export function createMap(container, state, onGeometryChange) {
     }
   }
 
+  function addGeoPdfOverlayToMap(overlay) {
+    const sourceId = geoPdfSourceId(overlay.id);
+    const layerId = geoPdfLayerId(overlay.id);
+    if (map.getSource(sourceId)) return;
+    map.addSource(sourceId, {
+      type: "image",
+      url: overlay.imageDataUrl,
+      coordinates: overlay.coordinates
+    });
+    const beforeLayerId = map.getLayer("setting-fill") ? "setting-fill" : undefined;
+    map.addLayer({
+      id: layerId,
+      type: "raster",
+      source: sourceId,
+      paint: {
+        "raster-opacity": overlay.visible ? Number(overlay.opacity ?? 0.65) : 0,
+        "raster-fade-duration": 0
+      }
+    }, beforeLayerId);
+    geoPdfOverlayIds.add(overlay.id);
+  }
+
+  function removeGeoPdfOverlayFromMap(overlayId) {
+    const sourceId = geoPdfSourceId(overlayId);
+    const layerId = geoPdfLayerId(overlayId);
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+    geoPdfOverlayIds.delete(overlayId);
+  }
+
+  function syncGeoPdfOverlays(state) {
+    const overlays = state.geopdfOverlays ?? [];
+    const stateIds = new Set(overlays.map((overlay) => overlay.id));
+
+    for (const id of [...geoPdfOverlayIds]) {
+      if (!stateIds.has(id)) removeGeoPdfOverlayFromMap(id);
+    }
+
+    for (const overlay of overlays) {
+      const sourceId = geoPdfSourceId(overlay.id);
+      const layerId = geoPdfLayerId(overlay.id);
+      if (!map.getSource(sourceId)) {
+        addGeoPdfOverlayToMap(overlay);
+      } else {
+        const source = map.getSource(sourceId);
+        if (typeof source.updateImage === "function") {
+          source.updateImage({
+            url: overlay.imageDataUrl,
+            coordinates: overlay.coordinates
+          });
+        }
+        if (map.getLayer(layerId)) {
+          map.setPaintProperty(layerId, "raster-opacity", overlay.visible ? Number(overlay.opacity ?? 0.65) : 0);
+        }
+      }
+      geoPdfOverlayIds.add(overlay.id);
+    }
+  }
+
   function initStyleLayers() {
     styleLoading = false;
     userLayerIds.clear(); // style reload wipes all sources
+    geoPdfOverlayIds.clear();
     addBaseMapLayers(map, linzApiKey, sentinelInstanceId, currentState.baseMapMode);
     addTerrainSource(map);
     addParcelLayer(map);
     restoreDrawFeatures(draw, currentState);
     addProjectLayers(map);
+    syncGeoPdfOverlays(currentState);
     renderProjectMap(map, currentState);
+    bindSkylineHoverEvents();
     syncUserLayers(currentState);
     fetchParcels(map, linzLdsKey);
     styleDrawVertices();
@@ -228,6 +306,35 @@ export function createMap(container, state, onGeometryChange) {
 
   map.on("load", initStyleLayers);
   map.on("moveend", () => fetchParcels(map, linzLdsKey));
+
+  function bindSkylineHoverEvents() {
+    if (skylineHoverEventsBound) return;
+    skylineHoverEventsBound = true;
+
+    const showPopup = (event) => {
+      const feature = event.features?.[0];
+      if (!feature) return;
+      const skylineId = skylineIdFromFeature(feature);
+      if (!skylineId) return;
+      const popupHtml = skylineProfilePopupHtml(currentState, skylineId);
+      map.getCanvas().style.cursor = "pointer";
+      skylinePopup
+        .setLngLat(event.lngLat)
+        .setHTML(popupHtml)
+        .addTo(map);
+    };
+
+    const hidePopup = () => {
+      map.getCanvas().style.cursor = "";
+      skylinePopup.remove();
+    };
+
+    ["corridor-base", "result-segments"].forEach((layerId) => {
+      map.on("mouseenter", layerId, showPopup);
+      map.on("mousemove", layerId, showPopup);
+      map.on("mouseleave", layerId, hidePopup);
+    });
+  }
 
   // Disable double-click zoom so it never conflicts with editing features.
   // Users can still zoom with scroll, pinch, or the +/- navigation buttons.
@@ -358,6 +465,7 @@ export function createMap(container, state, onGeometryChange) {
         map.once("style.load", initStyleLayers);
       } else if (!styleLoading) {
         renderProjectMap(map, currentState);
+        syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
       }
     },
@@ -366,6 +474,7 @@ export function createMap(container, state, onGeometryChange) {
       if (map.loaded() && !styleLoading) {
         restoreDrawFeatures(draw, currentState);
         renderProjectMap(map, currentState);
+        syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
       }
     },
@@ -461,6 +570,7 @@ function projectBounds(state) {
     ...(state.skid ? [state.skid] : []),
     ...flattenCoordinates(state.settingPolygon),
     ...(state.skylines ?? []).flatMap((skyline) => skyline.coordinates ?? []),
+    ...(state.geopdfOverlays ?? []).flatMap((overlay) => overlay.coordinates ?? []),
     ...(state.results ?? []).flatMap((result) => (result.samples ?? []).map((sample) => sample.coordinate).filter(Boolean))
   ].filter(isLngLat);
 
@@ -816,7 +926,10 @@ function renderProjectMap(map, state) {
     type: "FeatureCollection",
     features: state.skylines.map((skyline, index) => ({
       type: "Feature",
-      properties: { label: skyline.id ?? skylineLabel(index) },
+      properties: {
+        label: skyline.id ?? skylineLabel(index),
+        skylineId: skyline.id ?? skylineLabel(index)
+      },
       geometry: { type: "LineString", coordinates: skyline.coordinates }
     }))
   });
@@ -1026,4 +1139,135 @@ function labelCoordinate(coordinates) {
   const start = coordinates[index];
   const end = coordinates[index + 1] ?? start;
   return [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+}
+
+function skylineIdFromFeature(feature) {
+  const skylineId = feature?.properties?.skylineId ?? feature?.properties?.label;
+  return skylineId == null ? null : String(skylineId);
+}
+
+function skylineProfilePopupHtml(state, skylineId) {
+  const skyline = (state.skylines ?? []).find((item) => String(item.id) === skylineId);
+  const result = (state.results ?? []).find((item) => String(item.id) === skylineId);
+
+  if (!result) {
+    const length = skylineLength(skyline?.coordinates ?? []);
+    return `
+      <section class="skyline-popup-card">
+        <h4>Skyline ${escapeHtml(skylineId)}</h4>
+        <p class="skyline-popup-note">Profile not calculated yet.</p>
+        <dl>
+          <dt>Length</dt><dd>${length.toFixed(0)} m</dd>
+        </dl>
+      </section>
+    `;
+  }
+
+  const samples = result.samples ?? [];
+  const landing = samples[0] ?? {};
+  const tailhold = samples.at(-1) ?? {};
+  const minSample = samples.reduce(
+    (min, sample) => (sample.clearance < min.clearance ? sample : min),
+    samples[0] ?? { clearance: Number.POSITIVE_INFINITY, distanceAlongLine: 0 }
+  );
+
+  return `
+    <section class="skyline-popup-card">
+      <h4>Skyline ${escapeHtml(result.id ?? skylineId)} profile</h4>
+      ${renderSkylineProfileMiniChart(result)}
+      <dl>
+        <dt>Length</dt><dd>${result.length.toFixed(0)} m</dd>
+        <dt>Deflection</dt><dd>${Number(result.deflectionPercent || 0).toFixed(0)}%</dd>
+        <dt>Min clearance</dt><dd>${result.minClearance.toFixed(1)} m</dd>
+        <dt>Min at</dt><dd>${Number(minSample.distanceAlongLine || 0).toFixed(0)} m</dd>
+        <dt>Clearance</dt><dd>${result.percentGreen.toFixed(0)}%</dd>
+        <dt>No lift</dt><dd>${result.percentRed.toFixed(0)}%</dd>
+      </dl>
+      <p class="skyline-popup-note">Landing ${formatElevation(landing.groundElevation)} m, tailhold ${formatElevation(tailhold.groundElevation)} m.</p>
+    </section>
+  `;
+}
+
+function renderSkylineProfileMiniChart(result) {
+  const samples = result.samples ?? [];
+  if (samples.length < 2) return "";
+
+  const width = 240;
+  const height = 94;
+  const margin = { top: 7, right: 7, bottom: 8, left: 7 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+
+  const maxDistance = Math.max(result.length || 0, ...samples.map(sampleDistance));
+  if (maxDistance <= 0) return "";
+
+  const elevations = samples
+    .flatMap((sample) => [Number(sample.groundElevation), skylineHeight(sample)])
+    .filter(Number.isFinite);
+  if (!elevations.length) return "";
+
+  const minElevation = Math.min(...elevations);
+  const maxElevation = Math.max(...elevations);
+  const yRange = Math.max(1, maxElevation - minElevation);
+
+  const x = (sample) => margin.left + (sampleDistance(sample) / maxDistance) * plotWidth;
+  const y = (elevation) => margin.top + (1 - ((elevation - minElevation) / yRange)) * plotHeight;
+
+  const terrainPoints = samples.map((sample) => {
+    const elevation = Number.isFinite(Number(sample.groundElevation)) ? Number(sample.groundElevation) : minElevation;
+    return `${x(sample).toFixed(1)},${y(elevation).toFixed(1)}`;
+  }).join(" ");
+
+  const skylinePoints = samples.map((sample) => {
+    const elevation = Number.isFinite(skylineHeight(sample)) ? skylineHeight(sample) : minElevation;
+    return `${x(sample).toFixed(1)},${y(elevation).toFixed(1)}`;
+  }).join(" ");
+
+  const minSample = samples.reduce(
+    (min, sample) => (Number(sample.clearance) < Number(min.clearance) ? sample : min),
+    samples[0]
+  );
+  const minElevationPoint = Number.isFinite(skylineHeight(minSample)) ? skylineHeight(minSample) : minElevation;
+
+  return `
+    <figure class="skyline-popup-chart" aria-hidden="true">
+      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+        <rect x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" fill="#f8fafc" stroke="#d7ded2" />
+        <polyline points="${terrainPoints}" fill="none" stroke="#2f3437" stroke-width="1.8" />
+        <polyline points="${skylinePoints}" fill="none" stroke="#0f477a" stroke-width="2.4" />
+        <circle cx="${x(minSample).toFixed(1)}" cy="${y(minElevationPoint).toFixed(1)}" r="2.8" fill="${result.pass ? "#178f48" : "#d71920"}" />
+      </svg>
+      <figcaption>Terrain + deflected skyline profile</figcaption>
+    </figure>
+  `;
+}
+
+function sampleDistance(sample) {
+  const value = Number(sample?.distanceAlongLine ?? sample?.distanceAlong ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function skylineHeight(sample) {
+  const value = Number(sample?.skylineElevation ?? sample?.cableElevation);
+  return Number.isFinite(value) ? value : NaN;
+}
+
+function skylineLength(coordinates) {
+  return coordinates.slice(1).reduce((total, coordinate, index) => {
+    return total + distance(coordinates[index], coordinate);
+  }, 0);
+}
+
+function formatElevation(value) {
+  return Number.isFinite(value) ? Number(value).toFixed(1) : "-";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>\"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;"
+  })[char]);
 }

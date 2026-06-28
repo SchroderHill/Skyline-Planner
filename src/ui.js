@@ -16,24 +16,6 @@ export function renderApp(root, state, handlers) {
       <main class="layout">
         <section class="map-pane">
           <div id="map"></div>
-          <div class="basemap-picker" id="basemapPicker">
-            <button class="basemap-btn" data-mode="outdoors" title="Mapbox outdoors">
-              <span class="basemap-thumb basemap-thumb--outdoors"></span>
-              <span>Outdoors</span>
-            </button>
-            <button class="basemap-btn" data-mode="linz-hillshade" title="LINZ hillshade">
-              <span class="basemap-thumb basemap-thumb--hillshade"></span>
-              <span>Hillshade</span>
-            </button>
-            <button class="basemap-btn" data-mode="google-satellite" title="Google satellite">
-              <span class="basemap-thumb basemap-thumb--satellite"></span>
-              <span>Satellite</span>
-            </button>
-            <button class="basemap-btn" data-mode="sentinel-2" title="Sentinel-2 &lt;5% cloud">
-              <span class="basemap-thumb basemap-thumb--sentinel"></span>
-              <span>Sentinel-2</span>
-            </button>
-          </div>
         </section>
         <aside class="panel">
           <section class="workflow">
@@ -48,6 +30,27 @@ export function renderApp(root, state, handlers) {
             <button id="exportGeoJson">Export GeoJSON</button>
             <button id="reset" class="danger">Reset project</button>
           </div>
+          <section class="basemap-section">
+            <h2>Basemap</h2>
+            <div class="basemap-picker" id="basemapPicker">
+              <button class="basemap-btn" data-mode="outdoors" title="Mapbox outdoors">
+                <span class="basemap-thumb basemap-thumb--outdoors"></span>
+                <span>Outdoors</span>
+              </button>
+              <button class="basemap-btn" data-mode="linz-hillshade" title="LINZ hillshade">
+                <span class="basemap-thumb basemap-thumb--hillshade"></span>
+                <span>Hillshade</span>
+              </button>
+              <button class="basemap-btn" data-mode="google-satellite" title="Google satellite">
+                <span class="basemap-thumb basemap-thumb--satellite"></span>
+                <span>Satellite</span>
+              </button>
+              <button class="basemap-btn" data-mode="sentinel-2" title="Sentinel-2 &lt;5% cloud">
+                <span class="basemap-thumb basemap-thumb--sentinel"></span>
+                <span>Sentinel-2</span>
+              </button>
+            </div>
+          </section>
           <section class="terrain-panel">
             <h2>Terrain</h2>
             <label>
@@ -78,8 +81,14 @@ export function renderApp(root, state, handlers) {
                 Import Shapefile (.zip)
                 <input id="shapeFile" type="file" accept=".zip" />
               </label>
+              <label class="user-data-file-label">
+                Import GeoPDF
+                <input id="geoPdfFile" type="file" accept=".pdf,application/pdf" />
+              </label>
             </div>
             <div id="userLayersList" class="user-layers-list"></div>
+            <div id="geoPdfStatus" class="geopdf-status"></div>
+            <div id="geoPdfOverlaysList" class="user-layers-list"></div>
           </section>
           <section>
             <h2>Inputs</h2>
@@ -157,6 +166,10 @@ export function renderApp(root, state, handlers) {
       const file = event.target.files?.[0];
       if (file) { handlers.loadShapefile(file); event.target.value = ""; }
     });
+    root.querySelector("#geoPdfFile").addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) { handlers.loadGeoPdf(file); event.target.value = ""; }
+    });
     root.querySelector("#userLayersList").addEventListener("click", (event) => {
       const toggleBtn = event.target.closest("[data-toggle-layer]");
       const removeBtn = event.target.closest("[data-remove-layer]");
@@ -164,6 +177,19 @@ export function renderApp(root, state, handlers) {
       if (toggleBtn) handlers.toggleUserLayer(toggleBtn.dataset.toggleLayer);
       if (removeBtn) handlers.removeUserLayer(removeBtn.dataset.removeLayer);
       if (zoomBtn) handlers.zoomToUserLayer(zoomBtn.dataset.zoomLayer);
+    });
+    root.querySelector("#geoPdfOverlaysList").addEventListener("click", (event) => {
+      const toggleBtn = event.target.closest("[data-toggle-geopdf]");
+      const removeBtn = event.target.closest("[data-remove-geopdf]");
+      const zoomBtn = event.target.closest("[data-zoom-geopdf]");
+      if (toggleBtn) handlers.toggleGeoPdfOverlay(toggleBtn.dataset.toggleGeopdf);
+      if (removeBtn) handlers.removeGeoPdfOverlay(removeBtn.dataset.removeGeopdf);
+      if (zoomBtn) handlers.zoomToGeoPdfOverlay(zoomBtn.dataset.zoomGeopdf);
+    });
+    root.querySelector("#geoPdfOverlaysList").addEventListener("input", (event) => {
+      const input = event.target.closest("[data-geopdf-opacity]");
+      if (!input) return;
+      handlers.setGeoPdfOverlayOpacity(input.dataset.geopdfOpacity, Number(input.value));
     });
     root.dataset.mounted = "true";
   }
@@ -203,6 +229,8 @@ function updateApp(root, state) {
   root.querySelector("#skylineCount").textContent = String(state.skylines.length);
   root.querySelector("#results").innerHTML = renderResults(state.results);
   root.querySelector("#userLayersList").innerHTML = renderUserLayers(state.userLayers ?? []);
+  root.querySelector("#geoPdfStatus").innerHTML = renderGeoPdfStatus(state.geopdfImport);
+  root.querySelector("#geoPdfOverlaysList").innerHTML = renderGeoPdfOverlays(state.geopdfOverlays ?? []);
 
   const dialog = root.querySelector("#assumptionsDialog");
   if (!dialog.open) {
@@ -309,6 +337,19 @@ function renderGeoTiffMeta(meta, error) {
   `;
 }
 
+function renderGeoPdfStatus(status) {
+  if (status?.loading) {
+    return `<p class="muted">Importing GeoPDF&hellip;</p>`;
+  }
+  if (status?.error) {
+    return `<p class="geopdf-error">${escapeHtml(status.error)}</p>`;
+  }
+  if (status?.message) {
+    return `<p class="muted geopdf-message">${escapeHtml(status.message)}</p>`;
+  }
+  return "";
+}
+
 function renderUserLayers(layers) {
   if (!layers.length) {
     return `<p class="muted user-layers-empty">No files imported yet.</p>`;
@@ -322,6 +363,37 @@ function renderUserLayers(layers) {
       <button class="user-layer-btn user-layer-btn--danger" data-remove-layer="${escapeHtml(layer.id)}" title="Remove layer">✕</button>
     </div>
   `).join("");
+}
+
+function renderGeoPdfOverlays(overlays) {
+  if (!overlays.length) {
+    return `<p class="muted user-layers-empty">No GeoPDF overlays yet.</p>`;
+  }
+  return overlays.map((overlay) => {
+    const opacity = Number.isFinite(Number(overlay.opacity)) ? Number(overlay.opacity) : 0.65;
+    const dims = overlay.width && overlay.height ? `${overlay.width}×${overlay.height}px` : "";
+    const crs = overlay.crsLabel ? ` ${overlay.crsLabel}` : "";
+    const rmse = Number.isFinite(Number(overlay.transformRmse)) ? Number(overlay.transformRmse) : null;
+    const rmseText = rmse == null ? "" : ` Fit ${rmse.toFixed(3)}°`;
+    const lowConfidenceClass = rmse != null && rmse > 0.35 ? " geopdf-meta--warn" : "";
+    return `
+      <div class="geopdf-layer-item">
+        <div class="user-layer-item">
+          <span class="user-layer-swatch geopdf-layer-swatch"></span>
+          <span class="user-layer-name" title="${escapeHtml(overlay.name)}">${escapeHtml(overlay.name)}</span>
+          <button class="user-layer-btn" data-zoom-geopdf="${escapeHtml(overlay.id)}" title="Zoom to overlay">⌖</button>
+          <button class="user-layer-btn${overlay.visible ? "" : " user-layer-btn--muted"}" data-toggle-geopdf="${escapeHtml(overlay.id)}" title="${overlay.visible ? "Hide overlay" : "Show overlay"}">${overlay.visible ? "👁" : "👁"}</button>
+          <button class="user-layer-btn user-layer-btn--danger" data-remove-geopdf="${escapeHtml(overlay.id)}" title="Remove overlay">✕</button>
+        </div>
+        <label class="geopdf-opacity-row">
+          <span>Opacity</span>
+          <input type="range" min="0" max="1" step="0.05" value="${opacity.toFixed(2)}" data-geopdf-opacity="${escapeHtml(overlay.id)}" />
+          <strong>${Math.round(opacity * 100)}%</strong>
+        </label>
+        <p class="geopdf-meta${lowConfidenceClass}">${escapeHtml(dims)}${escapeHtml(crs)}${escapeHtml(rmseText)}</p>
+      </div>
+    `;
+  }).join("");
 }
 
 function escapeHtml(value) {

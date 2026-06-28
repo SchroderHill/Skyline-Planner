@@ -11,6 +11,7 @@ import {
   terrainWarningForMode
 } from "./terrain.js";
 import { GeoTiffTerrainProvider } from "./geotiff-terrain.js";
+import { parseGeoPdf } from "./geopdf.js";
 import { parseKml, parseShapefile, nextLayerColor } from "./user-layers.js";
 import { renderApp } from "./ui.js";
 
@@ -112,6 +113,52 @@ function paint() {
         window.alert(`Failed to import shapefile: ${err.message}`);
       }
     },
+    async loadGeoPdf(file) {
+      commit({
+        geopdfImport: {
+          loading: true,
+          error: "",
+          message: `Importing ${file.name}...`
+        }
+      });
+      try {
+        const parsed = await parseGeoPdf(file);
+        const overlay = {
+          id: `gp-${Date.now()}`,
+          name: file.name,
+          visible: true,
+          opacity: 0.65,
+          imageDataUrl: parsed.imageDataUrl,
+          coordinates: parsed.coordinates,
+          boundsLngLat: parsed.boundsLngLat,
+          crsCode: parsed.crsCode,
+          crsLabel: parsed.crsLabel,
+          width: parsed.width,
+          height: parsed.height,
+          pageCount: parsed.pageCount,
+          transformRmse: parsed.transformRmse
+        };
+        const geopdfOverlays = [...(state.geopdfOverlays ?? []), overlay];
+        commit({
+          geopdfOverlays,
+          geopdfImport: {
+            loading: false,
+            error: "",
+            message: `Imported ${file.name}${parsed.pageCount > 1 ? " (showing page 1)." : "."}`
+          }
+        });
+        const overlayGeometry = geoPdfOverlayToFeatureCollection(overlay);
+        if (overlayGeometry.features.length) mapApi?.flyToLayer(overlayGeometry);
+      } catch (err) {
+        commit({
+          geopdfImport: {
+            loading: false,
+            error: `Failed to import GeoPDF: ${err.message}`,
+            message: ""
+          }
+        });
+      }
+    },
     toggleUserLayer(id) {
       const userLayers = (state.userLayers ?? []).map((l) =>
         l.id === id ? { ...l, visible: !l.visible } : l
@@ -125,6 +172,29 @@ function paint() {
     zoomToUserLayer(id) {
       const layer = (state.userLayers ?? []).find((l) => l.id === id);
       if (layer) mapApi?.flyToLayer(layer.geojson);
+    },
+    toggleGeoPdfOverlay(id) {
+      const geopdfOverlays = (state.geopdfOverlays ?? []).map((overlay) =>
+        overlay.id === id ? { ...overlay, visible: !overlay.visible } : overlay
+      );
+      commit({ geopdfOverlays });
+    },
+    removeGeoPdfOverlay(id) {
+      const geopdfOverlays = (state.geopdfOverlays ?? []).filter((overlay) => overlay.id !== id);
+      commit({ geopdfOverlays });
+    },
+    zoomToGeoPdfOverlay(id) {
+      const overlay = (state.geopdfOverlays ?? []).find((item) => item.id === id);
+      if (!overlay) return;
+      const overlayGeometry = geoPdfOverlayToFeatureCollection(overlay);
+      if (overlayGeometry.features.length) mapApi?.flyToLayer(overlayGeometry);
+    },
+    setGeoPdfOverlayOpacity(id, opacity) {
+      const nextOpacity = clamp(opacity, 0, 1);
+      const geopdfOverlays = (state.geopdfOverlays ?? []).map((overlay) =>
+        overlay.id === id ? { ...overlay, opacity: nextOpacity } : overlay
+      );
+      commit({ geopdfOverlays });
     },
     changeBaseMapMode(baseMapMode) {
       commit({ baseMapMode });
@@ -376,6 +446,34 @@ function normalizeAssumptions(assumptions) {
 
 function feetToMetres(feet) {
   return Number.isFinite(feet) ? feet * 0.3048 : 0;
+}
+
+function geoPdfOverlayToFeatureCollection(overlay) {
+  const corners = (overlay?.coordinates ?? []).filter((coordinate) =>
+    Array.isArray(coordinate)
+    && coordinate.length >= 2
+    && Number.isFinite(coordinate[0])
+    && Number.isFinite(coordinate[1])
+  );
+  if (corners.length < 4) {
+    return { type: "FeatureCollection", features: [] };
+  }
+  const closed = [...corners, corners[0]];
+  return {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: { id: overlay.id, name: overlay.name },
+      geometry: {
+        type: "Polygon",
+        coordinates: [closed]
+      }
+    }]
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value)));
 }
 
 paint();
