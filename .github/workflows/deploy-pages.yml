@@ -17,6 +17,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN || secrets.MAPBOX_ACCESS_TOKEN || vars.VITE_MAPBOX_TOKEN || vars.MAPBOX_ACCESS_TOKEN || '' }}
+      VITE_LINZ_API_KEY: ${{ secrets.VITE_LINZ_API_KEY || secrets.LINZ_API_KEY || vars.VITE_LINZ_API_KEY || vars.LINZ_API_KEY || '' }}
+      VITE_LINZ_LDS_KEY: ${{ secrets.VITE_LINZ_LDS_KEY || secrets.LINZ_LDS_KEY || secrets.API_KEY || vars.VITE_LINZ_LDS_KEY || vars.LINZ_LDS_KEY || vars.API_KEY || '' }}
+      VITE_SENTINEL_INSTANCE_ID: ${{ secrets.VITE_SENTINEL_INSTANCE_ID || vars.VITE_SENTINEL_INSTANCE_ID || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,12 +35,41 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Fill Missing Keys From Design Portal
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "${VITE_MAPBOX_TOKEN:-}" ] && [ -n "${VITE_LINZ_API_KEY:-}" ] && [ -n "${VITE_LINZ_LDS_KEY:-}" ]; then
+            echo "Build keys already provided by secrets/variables."
+            exit 0
+          fi
+
+          source_url="https://raw.githubusercontent.com/SchroderHill/desig_portal/main/index.html"
+          page="$(curl -fsSL "$source_url")"
+
+          extract_one() {
+            local pattern="$1"
+            printf "%s" "$page" | sed -n "s/.*${pattern}.*/\\1/p" | head -n1
+          }
+
+          mapbox_from_portal="$(extract_one "mapboxgl\.accessToken = '\([^']*\)'")"
+          linz_from_portal="$(extract_one "const LINZ_API_KEY = '\([^']*\)'")"
+          lds_from_portal="$(extract_one "const API_KEY = '\([^']*\)'")"
+
+          if [ -z "${VITE_MAPBOX_TOKEN:-}" ] && [ -n "$mapbox_from_portal" ]; then
+            echo "VITE_MAPBOX_TOKEN=$mapbox_from_portal" >> "$GITHUB_ENV"
+          fi
+          if [ -z "${VITE_LINZ_API_KEY:-}" ] && [ -n "$linz_from_portal" ]; then
+            echo "VITE_LINZ_API_KEY=$linz_from_portal" >> "$GITHUB_ENV"
+          fi
+          if [ -z "${VITE_LINZ_LDS_KEY:-}" ] && [ -n "$lds_from_portal" ]; then
+            echo "VITE_LINZ_LDS_KEY=$lds_from_portal" >> "$GITHUB_ENV"
+          fi
+
+          echo "Design portal fallback key sync complete."
+
       - name: Build
-        env:
-          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
-          VITE_LINZ_API_KEY: ${{ secrets.VITE_LINZ_API_KEY }}
-          VITE_LINZ_LDS_KEY: ${{ secrets.VITE_LINZ_LDS_KEY }}
-          VITE_SENTINEL_INSTANCE_ID: ${{ secrets.VITE_SENTINEL_INSTANCE_ID }}
         run: npm run build
 
       - name: Configure Pages

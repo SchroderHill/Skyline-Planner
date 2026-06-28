@@ -37,6 +37,8 @@ The site is deployed by GitHub Actions using [.github/workflows/deploy-pages.yml
 
 If VITE_MAPBOX_TOKEN is missing in CI, the deployed app still loads but runs in no-map fallback mode.
 
+If these values are not set in this repository, the deploy workflow will attempt to read the same public keys from `SchroderHill/desig_portal` (from its `index.html`) as a fallback.
+
 ## Tests
 
 ```powershell
