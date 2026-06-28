@@ -8,17 +8,6 @@
   </head>
   <body>
     <div id="app"></div>
-    <script>
-      const isGitHubPages = window.location.hostname.endsWith("github.io");
-      const inDistPath = /\/dist(\/|$)/.test(window.location.pathname);
-
-      if (isGitHubPages && !inDistPath) {
-        const basePath = window.location.pathname.endsWith("/")
-          ? window.location.pathname
-          : `${window.location.pathname}/`;
-        window.location.replace(`${basePath}dist/`);
-      }
-    </script>
     <script type="module" src="/src/main.js"></script>
     <noscript>This app requires JavaScript to run.</noscript>
   </body>
