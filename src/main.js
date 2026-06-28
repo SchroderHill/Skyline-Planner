@@ -17,7 +17,7 @@ import { renderApp } from "./ui.js";
 
 // Cache basemap tiles (Google, LINZ, Sentinel-2) in the browser for fast repeat loads
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
 }
 
 const root = document.querySelector("#app");
