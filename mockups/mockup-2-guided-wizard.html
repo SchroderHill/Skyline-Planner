@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup 2 – Guided Wizard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a2332; height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    height: 60px;
+    background: linear-gradient(90deg, #0d6135 0%, #178f48 100%);
+    display: flex; align-items: center;
+    padding: 0 24px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .logo-text { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: -.3px; }
+  .logo-sub { font-size: 10px; color: rgba(255,255,255,.65); }
+  .project-input {
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.3);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: #fff;
+    width: 230px;
+  }
+  .project-input::placeholder { color: rgba(255,255,255,.5); }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .tbtn {
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+  }
+  .tbtn-light { background: rgba(255,255,255,.2); color: #fff; }
+  .tbtn-white { background: #fff; color: #178f48; }
+
+  /* ── MAIN ── */
+  .main { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── WIZARD SIDEBAR ── */
+  .wizard-sidebar {
+    width: 300px;
+    background: #fff;
+    border-right: 1px solid #dde5ef;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .wizard-header {
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid #eef2f7;
+  }
+  .wizard-title { font-size: 13px; font-weight: 700; color: #1a2332; margin-bottom: 2px; }
+  .wizard-subtitle { font-size: 11px; color: #94a3b8; }
+
+  /* Step list */
+  .step-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .12s;
+    position: relative;
+  }
+  .step.done { opacity: .75; }
+  .step.active { background: #f0faf4; }
+  .step:hover:not(.active) { background: #f8fafc; }
+
+  /* Vertical connector line */
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 21px;
+    bottom: -10px;
+    width: 2px;
+    height: 12px;
+    background: #e2e8f0;
+    z-index: 1;
+  }
+  .step.done::after { background: #bbf7d0; }
+
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-num-done { background: #178f48; color: #fff; }
+  .step-num-active { background: #178f48; color: #fff; box-shadow: 0 0 0 4px #dcfce7; }
+  .step-num-pending { background: #e2e8f0; color: #94a3b8; }
+
+  .step-content { flex: 1; }
+  .step-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a2332;
+    margin-bottom: 1px;
+  }
+  .step.done .step-label { color: #64748b; }
+  .step-desc { font-size: 10px; color: #94a3b8; }
+  .step-status {
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 3px;
+  }
+  .step-status.ok { color: #178f48; }
+  .step-status.err { color: #dc2626; }
+  .step-status.pending-txt { color: #94a3b8; }
+
+  /* Active step detail card */
+  .step-detail {
+    margin: 0 16px 16px;
+    background: #f0faf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .step-detail-title { font-size: 12px; font-weight: 700; color: #166534; margin-bottom: 10px; }
+  .form-field { margin-bottom: 10px; }
+  .form-label { font-size: 10px; font-weight: 700; color: #4a6080; margin-bottom: 4px; }
+  .form-input, .form-select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #d1fae5;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #fff;
+    color: #1a2332;
+  }
+  .form-row { display: flex; gap: 8px; }
+  .form-row .form-field { flex: 1; }
+  .step-action-btn {
+    width: 100%;
+    padding: 9px;
+    background: #178f48;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 4px;
+  }
+
+  /* Progress footer */
+  .wizard-footer {
+    padding: 14px 16px;
+    border-top: 1px solid #eef2f7;
+    background: #f8fafc;
+  }
+  .progress-bar-wrap { background: #e2e8f0; border-radius: 4px; height: 6px; margin-bottom: 8px; }
+  .progress-bar-fill { background: #178f48; border-radius: 4px; height: 100%; width: 60%; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+  .progress-label strong { color: #178f48; }
+
+  /* ── MAP ── */
+  .map-area {
+    flex: 1;
+    background: #bfcfb8;
+    position: relative;
+    overflow: hidden;
+  }
+  .map-area::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 55% 45% at 40% 55%, rgba(150,180,120,.55) 0%, transparent 65%),
+      radial-gradient(ellipse 45% 55% at 65% 35%, rgba(110,145,85,.45) 0%, transparent 65%),
+      linear-gradient(140deg, #b2c8a5 0%, #9ab890 25%, #c5d8b2 55%, #aabe98 100%);
+  }
+  .map-area::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(50deg, transparent, transparent 30px, rgba(70,90,50,.07) 30px, rgba(70,90,50,.07) 31px),
+      repeating-linear-gradient(-40deg, transparent, transparent 30px, rgba(70,90,50,.05) 30px, rgba(70,90,50,.05) 31px);
+  }
+
+  /* Setting polygon */
+  .setting-poly {
+    position: absolute;
+    top: 28%; left: 32%;
+    width: 44%; height: 46%;
+    border: 2px dashed rgba(26,35,50,.35);
+    border-radius: 42% 58% 52% 48%;
+    background: rgba(255,255,255,.07);
+  }
+
+  /* Skyline lines */
+  .skyline-line {
+    position: absolute;
+    height: 3px;
+    transform-origin: left center;
+    border-radius: 2px;
+  }
+  .sl-pass { background: #178f48; box-shadow: 0 0 6px rgba(23,143,72,.6); }
+  .sl-fail { background: #d71920; box-shadow: 0 0 6px rgba(215,25,32,.6); }
+  .sl-1 { top: 45%; left: 26%; width: 40%; transform: rotate(-7deg); }
+  .sl-2 { top: 52%; left: 26%; width: 44%; transform: rotate(3deg); }
+  .sl-3 { top: 59%; left: 26%; width: 38%; transform: rotate(13deg); }
+
+  /* Skid marker */
+  .skid-marker {
+    position: absolute;
+    top: calc(52% - 14px);
+    left: calc(26% - 14px);
+    width: 28px; height: 28px;
+    background: #1a2332;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.3);
+    z-index: 10;
+  }
+
+  /* Dot endpoints */
+  .dot {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #178f48;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+  }
+  .dot-fail { border-color: #d71920; }
+
+  /* corridor label tags */
+  .corridor-tag {
+    position: absolute;
+    background: rgba(255,255,255,.92);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+    z-index: 8;
+  }
+  .ct-pass { color: #166534; border: 1px solid #bbf7d0; }
+  .ct-fail { color: #991b1b; border: 1px solid #fecaca; }
+
+  /* Map top bar */
+  .map-topbar {
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 14px rgba(0,0,0,.18);
+    display: flex; align-items: center;
+    padding: 4px 4px;
+    gap: 2px;
+    z-index: 20;
+  }
+  .mt-btn {
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4a6080;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .mt-btn.active { background: #178f48; color: #fff; }
+  .mt-btn:hover:not(.active) { background: #f0f4f8; }
+  .mt-btn.locked { color: #c0ccd8; cursor: not-allowed; }
+
+  /* Watermark */
+  .watermark {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: rgba(255,255,255,.9);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #8a9ab5;
+    z-index: 25;
+  }
+
+  /* Result cards floating on map */
+  .result-cards {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 20;
+  }
+  .result-card {
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.18);
+    min-width: 200px;
+  }
+  .rc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .rc-title { font-size: 12px; font-weight: 700; color: #1a2332; }
+  .rc-badge {
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .rc-badge-pass { background: #dcfce7; color: #166534; }
+  .rc-badge-fail { background: #fee2e2; color: #991b1b; }
+  .rc-row { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; }
+  .rc-row + .rc-row { margin-top: 2px; }
+  .rc-row strong { color: #1a2332; }
+
+  /* Basemap mini picker */
+  .bm-picker {
+    position: absolute;
+    bottom: 16px; left: 16px;
+    background: rgba(255,255,255,.92);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex; gap: 6px;
+    z-index: 20;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .bm-s {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 7px;
+    font-weight: 700; color: #fff;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 3px;
+    border: 2px solid transparent;
+  }
+  .bm-s.on { border-color: #178f48; }
+  .bm-t { background: linear-gradient(135deg, #a8d5a2, #6bab65); }
+  .bm-h { background: linear-gradient(135deg, #8fa8c0, #556b82); }
+  .bm-g { background: linear-gradient(135deg, #4a7a3a, #1e4220); }
+  .bm-s2 { background: linear-gradient(135deg, #2c4a6e, #4a7aab); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div>
+    <div class="logo-text">Skyline Planning Report</div>
+    <div class="logo-sub">Schroder Hill Limited</div>
+  </div>
+  <input class="project-input" value="Taupo Block 14 – Season 2026" />
+  <div class="topbar-right">
+    <button class="tbtn tbtn-light">↓ Export</button>
+    <button class="tbtn tbtn-light">🖨 Print</button>
+    <button class="tbtn tbtn-white">▶ Calculate</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- WIZARD SIDEBAR -->
+  <div class="wizard-sidebar">
+
+    <div class="wizard-header">
+      <div class="wizard-title">Planning Workflow</div>
+      <div class="wizard-subtitle">Follow the steps to assess your corridors</div>
+    </div>
+
+    <div class="step-list">
+
+      <!-- Step 1 done -->
+      <div class="step done">
+        <div class="step-num step-num-done">✓</div>
+        <div class="step-content">
+          <div class="step-label">1. Place Skid</div>
+          <div class="step-desc">Landing / hauler position</div>
+          <div class="step-status ok">✓ Set at 38°12'S, 176°04'E</div>
+        </div>
+      </div>
+
+      <!-- Step 2 done -->
+      <div class="step done">
+        <div class="step-num step-num-done">✓</div>
+        <div class="step-content">
+          <div class="step-label">2. Draw Setting</div>
+          <div class="step-desc">Harvest boundary polygon</div>
+          <div class="step-status ok">✓ 48.2 ha</div>
+        </div>
+      </div>
+
+      <!-- Step 3 active -->
+      <div class="step active">
+        <div class="step-num step-num-active">3</div>
+        <div class="step-content">
+          <div class="step-label">3. Assumptions</div>
+          <div class="step-desc">Equipment &amp; clearance settings</div>
+          <div class="step-status ok">✓ Configured</div>
+        </div>
+      </div>
+
+      <!-- Step 4 pending -->
+      <div class="step">
+        <div class="step-num step-num-pending">4</div>
+        <div class="step-content">
+          <div class="step-label">4. Draw Corridors</div>
+          <div class="step-desc">Click to add skyline lines</div>
+          <div class="step-status ok">✓ 3 corridors drawn</div>
+        </div>
+      </div>
+
+      <!-- Step 5 pending -->
+      <div class="step">
+        <div class="step-num step-num-pending">5</div>
+        <div class="step-content">
+          <div class="step-label">5. Run Calculation</div>
+          <div class="step-desc">Clearance assessment</div>
+          <div class="step-status ok">✓ Calculated – 1 fail</div>
+        </div>
+      </div>
+
+      <!-- Step 6 pending -->
+      <div class="step">
+        <div class="step-num step-num-pending">6</div>
+        <div class="step-content">
+          <div class="step-label">6. Export / Print</div>
+          <div class="step-desc">GeoJSON or PDF report</div>
+          <div class="step-status pending-txt">Waiting…</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Active step detail -->
+    <div class="step-detail">
+      <div class="step-detail-title">⚙ Equipment Assumptions</div>
+      <div class="form-field">
+        <div class="form-label">Hauler Name</div>
+        <input class="form-input" value="Madill 071" />
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <div class="form-label">Tower Height</div>
+          <select class="form-select">
+            <option>70 ft (21.3m)</option>
+            <option>35 ft</option>
+            <option>50 ft</option>
+            <option>60 ft</option>
+            <option>90 ft</option>
+            <option>Custom</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <div class="form-label">Deflection</div>
+          <select class="form-select">
+            <option>6 %</option>
+            <option>4 %</option>
+            <option>8 %</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <div class="form-label">Min. Clearance (m)</div>
+          <input class="form-input" value="3" />
+        </div>
+        <div class="form-field">
+          <div class="form-label">Tailhold Ht. (m)</div>
+          <input class="form-input" value="2" />
+        </div>
+      </div>
+      <button class="step-action-btn">Save &amp; Continue →</button>
+    </div>
+
+    <!-- Progress footer -->
+    <div class="wizard-footer">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill"></div>
+      </div>
+      <div class="progress-label">
+        <span>Steps 3 of 6 complete</span>
+        <strong>60%</strong>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div class="map-area">
+    <div class="watermark">MOCKUP 2 – Guided Wizard</div>
+
+    <!-- Setting polygon -->
+    <div class="setting-poly"></div>
+
+    <!-- Skylines -->
+    <div class="skyline-line sl-pass sl-1"></div>
+    <div class="skyline-line sl-pass sl-2"></div>
+    <div class="skyline-line sl-fail sl-3"></div>
+
+    <!-- Skid -->
+    <div class="skid-marker">S</div>
+
+    <!-- Endpoint dots -->
+    <div class="dot" style="top:43%;left:66%;"></div>
+    <div class="dot" style="top:52%;left:70%;"></div>
+    <div class="dot dot-fail" style="top:65%;left:64%;"></div>
+
+    <!-- Corridor labels -->
+    <div class="corridor-tag ct-pass" style="top:40%;left:48%">SL1 ✓</div>
+    <div class="corridor-tag ct-pass" style="top:50%;left:50%">SL2 ✓</div>
+    <div class="corridor-tag ct-fail" style="top:60%;left:46%">SL3 ✗</div>
+
+    <!-- Top toolbar -->
+    <div class="map-topbar">
+      <div class="mt-btn locked">📍 Skid ✓</div>
+      <div class="mt-btn locked">⬡ Setting ✓</div>
+      <div class="mt-btn active">⟶ Corridors</div>
+      <div class="mt-btn">✏ Edit</div>
+      <div class="mt-btn">🗑 Delete</div>
+    </div>
+
+    <!-- Result cards -->
+    <div class="result-cards">
+      <div class="result-card">
+        <div class="rc-header">
+          <div class="rc-title">SL1</div>
+          <div class="rc-badge rc-badge-pass">PASS</div>
+        </div>
+        <div class="rc-row"><span>Length</span><strong>612 m</strong></div>
+        <div class="rc-row"><span>Min Clearance</span><strong>4.1 m</strong></div>
+        <div class="rc-row"><span>Pass Rate</span><strong>100%</strong></div>
+      </div>
+      <div class="result-card">
+        <div class="rc-header">
+          <div class="rc-title">SL3</div>
+          <div class="rc-badge rc-badge-fail">FAIL</div>
+        </div>
+        <div class="rc-row"><span>Length</span><strong>534 m</strong></div>
+        <div class="rc-row"><span>Min Clearance</span><strong style="color:#dc2626">−0.8 m</strong></div>
+        <div class="rc-row"><span>Pass Rate</span><strong style="color:#dc2626">76%</strong></div>
+      </div>
+    </div>
+
+    <!-- Basemap picker -->
+    <div class="bm-picker">
+      <div class="bm-s bm-t on">Topo</div>
+      <div class="bm-s bm-h">Hill</div>
+      <div class="bm-s bm-g">Sat</div>
+      <div class="bm-s bm-s2">S2</div>
+    </div>
+
+  </div>
+
+</div>
+</body>
+</html>
