@@ -24,6 +24,11 @@ export function renderApp(root, state, handlers) {
               <h2>Guided Workflow</h2>
               <p id="workflowHint" class="workflow-hint"></p>
               <button id="workflowPrimaryAction" class="workflow-primary-action" type="button"></button>
+              <div id="fieldModeToolbar" class="field-mode-toolbar">
+                <button id="toggleAdvancedTools" class="field-mode-btn" type="button">More tools</button>
+                <button id="toggleLocationTracking" class="field-mode-btn" type="button">Start location</button>
+              </div>
+              <p id="locationStatus" class="location-status" role="status" aria-live="polite"></p>
             </div>
             <ol id="workflowSteps" class="workflow-steps"></ol>
           </section>
@@ -34,6 +39,8 @@ export function renderApp(root, state, handlers) {
           <section class="actions-panel">
             <h2>Project Actions</h2>
             <div class="actions">
+              <button id="assumptionsAction" type="button">Set assumptions</button>
+              <button id="drawOptionalArea" type="button">Draw optional area</button>
               <button id="edit">Edit corridors</button>
               <button id="print">Print report</button>
               <button id="exportGeoJson">Export GeoJSON</button>
@@ -155,9 +162,11 @@ export function renderApp(root, state, handlers) {
 
     root.querySelector("#projectName").addEventListener("input", (event) => handlers.rename(event.target.value));
     root.querySelector("#assumptions").addEventListener("click", openAssumptions);
+    root.querySelector("#assumptionsAction").addEventListener("click", openAssumptions);
     root.querySelector("#saveAssumptions").addEventListener("click", () => handlers.saveAssumptions(readForm(dialog)));
     dialog.querySelector("[name=\"landingTowerPreset\"]").addEventListener("change", () => updateTowerHeightFields(dialog));
     root.querySelector("#calculate").addEventListener("click", handlers.calculate);
+    root.querySelector("#drawOptionalArea").addEventListener("click", handlers.startDrawSetting);
     root.querySelector("#edit").addEventListener("click", handlers.edit);
     root.querySelector("#print").addEventListener("click", handlers.print);
     root.querySelector("#exportGeoJson").addEventListener("click", handlers.exportGeoJson);
@@ -171,6 +180,8 @@ export function renderApp(root, state, handlers) {
       if (event.currentTarget.disabled) return;
       runWorkflowAction(event.currentTarget.dataset.workflowAction);
     });
+    root.querySelector("#toggleAdvancedTools").addEventListener("click", handlers.toggleAdvancedTools);
+    root.querySelector("#toggleLocationTracking").addEventListener("click", handlers.toggleLocationTracking);
     root.querySelector("#basemapPicker").addEventListener("click", (event) => {
       const btn = event.target.closest(".basemap-btn");
       if (btn) handlers.changeBaseMapMode(btn.dataset.mode);
@@ -233,6 +244,25 @@ export function renderApp(root, state, handlers) {
 }
 
 function updateApp(root, state) {
+  const isFieldMode = Boolean(state.isFieldMode);
+  const showAdvancedTools = Boolean(state.showAdvancedTools);
+  root.classList.toggle("is-field-mode", isFieldMode);
+  root.classList.toggle("show-advanced-tools", showAdvancedTools);
+
+  const toggleAdvancedTools = root.querySelector("#toggleAdvancedTools");
+  toggleAdvancedTools.textContent = showAdvancedTools ? "Hide tools" : "More tools";
+  toggleAdvancedTools.setAttribute("aria-pressed", String(showAdvancedTools));
+
+  const toggleLocationTracking = root.querySelector("#toggleLocationTracking");
+  toggleLocationTracking.textContent = state.locationTracking ? "Stop location" : "Start location";
+  toggleLocationTracking.setAttribute("aria-pressed", String(Boolean(state.locationTracking)));
+  toggleLocationTracking.disabled = state.locationErrorKind === "unsupported";
+
+  const locationStatus = root.querySelector("#locationStatus");
+  locationStatus.textContent = state.locationStatus ?? "";
+  locationStatus.classList.toggle("location-status--error", Boolean(state.locationErrorKind));
+  locationStatus.classList.toggle("location-status--active", Boolean(state.locationTracking && state.userLocation));
+
   const projectName = root.querySelector("#projectName");
   if (document.activeElement !== projectName) projectName.value = state.projectName;
 
@@ -243,11 +273,15 @@ function updateApp(root, state) {
   workflowPrimaryAction.textContent = workflow.primaryAction.actionLabel;
   workflowPrimaryAction.dataset.workflowAction = workflow.primaryAction.action;
   workflowPrimaryAction.disabled = !workflow.primaryAction.enabled;
+  workflowPrimaryAction.classList.toggle("is-loading", Boolean(state.isCalculating));
+  workflowPrimaryAction.setAttribute("aria-busy", String(Boolean(state.isCalculating)));
 
-  root.querySelector("#calculate").textContent = state.results.length ? "Recalculate" : "Calculate";
-  root.querySelector("#calculate").disabled = !workflow.canCalculate;
+  root.querySelector("#calculate").textContent = state.isCalculating ? "Calculating..." : state.results.length ? "Recalculate" : "Calculate";
+  root.querySelector("#calculate").disabled = state.isCalculating || !workflow.canCalculate;
+  const skidCount = skidPoints(state).length;
+  root.querySelector("#drawOptionalArea").disabled = !skidCount;
   root.querySelector("#edit").disabled = !state.skylines.length;
-  const hasProjectData = Boolean(state.skid || state.settingPolygon || state.skylines.length || state.results.length);
+  const hasProjectData = Boolean(skidCount || state.settingPolygon || state.skylines.length || state.results.length);
   root.querySelector("#print").disabled = !hasProjectData;
   root.querySelector("#exportGeoJson").disabled = !hasProjectData;
   root.querySelectorAll(".basemap-btn").forEach((btn) => {
@@ -261,7 +295,7 @@ function updateApp(root, state) {
   if (isGeoTiff) {
     root.querySelector("#geotiffMeta").innerHTML = renderGeoTiffMeta(state.geotiffMeta, state.geotiffError);
   }
-  root.querySelector("#skidStatus").textContent = state.skid ? "1 point" : "Not drawn";
+  root.querySelector("#skidStatus").textContent = skidCount ? `${skidCount} point${skidCount === 1 ? "" : "s"}` : "Not drawn";
   root.querySelector("#settingStatus").textContent = state.settingPolygon ? "1 polygon" : "Not drawn";
   root.querySelector("#settingArea").textContent = formatArea(polygonAreaSquareMetres(state.settingPolygon));
   root.querySelector("#skylineCount").textContent = String(state.skylines.length);
@@ -344,53 +378,37 @@ function assumptionChangedFromDefault(value, baseline) {
 }
 
 function workflowModel(state) {
-  const hasSkid = Boolean(state.skid);
-  const hasSetting = Boolean(state.settingPolygon);
+  const skidCount = skidPoints(state).length;
+  const hasSkid = skidCount > 0;
   const hasCorridors = (state.skylines ?? []).length > 0;
-  const assumptionsReady = Boolean(state.assumptionsTouched) || hasAssumptions(state.assumptions) || (state.results ?? []).length > 0;
   const hasResults = (state.results ?? []).length > 0;
-  const canCalculate = hasCorridors && assumptionsReady;
+  const isCalculating = Boolean(state.isCalculating);
+  const canCalculate = hasCorridors && !isCalculating;
 
   const steps = [
     {
       label: "Place skid / landing",
-      detail: hasSkid ? "Landing point is set on map." : "Start by placing the skid point.",
+      detail: hasSkid ? `${skidCount} landing point${skidCount === 1 ? " is" : "s are"} set on map.` : "Start by placing the skid point.",
       complete: hasSkid,
       enabled: true,
       action: "draw-skid",
-      actionLabel: hasSkid ? "Adjust skid" : "Start"
-    },
-    {
-      label: "Draw setting boundary",
-      detail: hasSetting ? "Setting polygon is defined." : "Map the harvest setting polygon.",
-      complete: hasSetting,
-      enabled: hasSkid,
-      action: "draw-setting",
-      actionLabel: hasSetting ? "Adjust setting" : "Draw boundary"
+      actionLabel: hasSkid ? "Add another skid" : "Start"
     },
     {
       label: "Draw skyline corridors",
       detail: hasCorridors ? `${state.skylines.length} corridor${state.skylines.length === 1 ? "" : "s"} prepared.` : "Add at least one skyline corridor.",
       complete: hasCorridors,
-      enabled: hasSkid && hasSetting,
+      enabled: hasSkid,
       action: "draw-corridor",
       actionLabel: hasCorridors ? "Add / edit corridors" : "Draw corridor"
     },
     {
-      label: "Confirm assumptions",
-      detail: assumptionsReady ? "Assumptions are saved." : "Set hauler and clearance assumptions.",
-      complete: assumptionsReady,
-      enabled: hasCorridors,
-      action: "open-assumptions",
-      actionLabel: assumptionsReady ? "Review assumptions" : "Set assumptions"
-    },
-    {
       label: hasResults ? "Recalculate and review" : "Calculate clearance",
-      detail: hasResults ? "Results are ready." : "Run clearance calculation once inputs are ready.",
-      complete: hasResults,
+      detail: isCalculating ? "Running clearance calculation..." : hasResults ? "Results are ready." : "Run clearance using the saved or default assumptions.",
+      complete: hasResults && !isCalculating,
       enabled: canCalculate,
       action: "calculate",
-      actionLabel: hasResults ? "Recalculate" : "Calculate"
+      actionLabel: isCalculating ? "Calculating..." : hasResults ? "Recalculate" : "Calculate"
     }
   ];
 
@@ -398,14 +416,15 @@ function workflowModel(state) {
   if (currentIndex >= 0) steps[currentIndex].current = true;
 
   let hint = "Use the steps in order to complete a full planning run.";
-  if (!hasSkid) hint = "Step 1: Place the skid / landing point on the map.";
-  else if (!hasSetting) hint = "Step 2: Draw the harvest setting boundary.";
-  else if (!hasCorridors) hint = "Step 3: Draw one or more skyline corridors from skid to tailhold.";
-  else if (!assumptionsReady) hint = "Step 4: Set assumptions before calculation.";
-  else if (!hasResults) hint = "Step 5: Run Calculate to evaluate clearances.";
+  if (isCalculating) hint = "Calculating skyline clearance...";
+  else if (!hasSkid) hint = "Step 1: Place the skid / landing point on the map.";
+  else if (!hasCorridors) hint = "Step 2: Draw one or more skyline corridors from skid to tailhold.";
+  else if (!hasResults) hint = "Step 3: Run Calculate to evaluate clearances.";
   else hint = "Clearance results are ready. Use project actions to refine, export, or print.";
 
-  const primaryActionStep = steps.find((step) => step.current)
+  const primaryActionStep = hasResults
+    ? steps.at(-1)
+    : steps.find((step) => step.current)
     ?? steps.find((step) => !step.complete && step.enabled)
     ?? steps.find((step) => step.enabled)
     ?? steps[0];
@@ -420,6 +439,19 @@ function workflowModel(state) {
       enabled: Boolean(primaryActionStep.enabled)
     }
   };
+}
+
+function skidPoints(state) {
+  const skids = Array.isArray(state.skids) ? state.skids.filter(isLngLat) : [];
+  if (skids.length) return skids;
+  return isLngLat(state.skid) ? [state.skid] : [];
+}
+
+function isLngLat(coordinate) {
+  return Array.isArray(coordinate)
+    && coordinate.length >= 2
+    && Number.isFinite(coordinate[0])
+    && Number.isFinite(coordinate[1]);
 }
 
 function renderGeoTiffMeta(meta, error) {

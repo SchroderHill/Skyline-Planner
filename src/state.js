@@ -7,6 +7,7 @@ export function createInitialState() {
   return {
     projectName: "",
     skid: null,
+    skids: [],
     settingPolygon: null,
     skylines: [],
     assumptions: { ...DEFAULT_ASSUMPTIONS },
@@ -32,9 +33,12 @@ export function createInitialState() {
 export function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const skids = normalizeSkids(saved);
     return {
       ...createInitialState(),
       ...saved,
+      skid: skids.at(-1) ?? null,
+      skids,
       projectName: saved?.projectName === "Schroder Hill screening" ? "" : saved?.projectName ?? ""
     };
   } catch {
@@ -48,4 +52,17 @@ export function saveState(state) {
 
 export function clearState() {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+function normalizeSkids(project) {
+  const skids = Array.isArray(project?.skids) ? project.skids.filter(isLngLat).map((coordinate) => [...coordinate]) : [];
+  if (!skids.length && isLngLat(project?.skid)) skids.push([...project.skid]);
+  return skids;
+}
+
+function isLngLat(coordinate) {
+  return Array.isArray(coordinate)
+    && coordinate.length >= 2
+    && Number.isFinite(coordinate[0])
+    && Number.isFinite(coordinate[1]);
 }

@@ -105,6 +105,17 @@ export class GeoTiffTerrainProvider {
     this._epsg = null;
   }
 
+  /** Reset provider to its initial (unloaded) state. */
+  reset() {
+    this._ready = false;
+    this.meta = null;
+    this._data = null;
+    this._transform = null;
+    this._nodata = undefined;
+    this._toProjected = null;
+    this._epsg = null;
+  }
+
   /** Load a File object. Resolves with metadata, rejects with Error on failure. */
   async loadFile(file) {
     const buffer = await file.arrayBuffer();

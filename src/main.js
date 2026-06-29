@@ -12,6 +12,7 @@ import {
 } from "./terrain.js";
 import { GeoTiffTerrainProvider } from "./geotiff-terrain.js";
 import { parseGeoPdf } from "./geopdf.js";
+import { geolocationSupported, startLocationWatch } from "./location.js";
 import { parseKml, parseShapefile, nextLayerColor } from "./user-layers.js";
 import { renderApp } from "./ui.js";
 
@@ -48,11 +49,52 @@ if (isEmbedded) {
 
 const mockTerrainProvider = new MockTerrainProvider();
 const geotiffTerrainProvider = new GeoTiffTerrainProvider();
+const FIELD_MODE_QUERY = "(max-width: 760px)";
+const fieldModeMedia = typeof window.matchMedia === "function" ? window.matchMedia(FIELD_MODE_QUERY) : null;
+
 let state = loadState();
 state.terrainMode ??= defaultTerrainMode(Boolean(import.meta.env.VITE_MAPBOX_TOKEN));
 state.terrainStatus ??= terrainStatusFor(state.terrainMode);
 let mapApi;
 state = withSequentialSkylineIds(state);
+const runtime = {
+  isFieldMode: fieldModeMedia?.matches ?? false,
+  showAdvancedTools: false,
+  locationTracking: false,
+  locationStatus: geolocationSupported()
+    ? "Location off."
+    : "Location is unavailable on this device/browser.",
+  locationErrorKind: "",
+  isCalculating: false,
+  userLocation: null,
+  userLocationAccuracyM: null,
+  firstFixCentered: false,
+  stopLocationWatch: null
+};
+
+function handleFieldModeChange(event) {
+  runtime.isFieldMode = event.matches;
+  runtime.showAdvancedTools = false;
+  if (!event.matches) {
+    stopLocationTracking({
+      clearLocation: true,
+      status: geolocationSupported()
+        ? "Location off."
+        : "Location is unavailable on this device/browser."
+    });
+  }
+  paint();
+}
+
+if (fieldModeMedia) {
+  fieldModeMedia.addEventListener("change", handleFieldModeChange);
+}
+
+window.addEventListener("beforeunload", () => {
+  runtime.stopLocationWatch?.();
+  runtime.stopLocationWatch = null;
+  fieldModeMedia?.removeEventListener("change", handleFieldModeChange);
+});
 
 function commit(patch) {
   state = withSequentialSkylineIds({ ...state, ...patch });
@@ -61,7 +103,8 @@ function commit(patch) {
 }
 
 function paint() {
-  renderApp(root, state, {
+  const viewState = buildViewState();
+  renderApp(root, viewState, {
     rename(projectName) {
       state.projectName = projectName;
       saveState(state);
@@ -235,10 +278,6 @@ function paint() {
     },
     async calculate() {
       mapApi?.blur();
-      if (!assumptionsConfigured(state)) {
-        window.alert("Open assumptions, review values, and click Save before calculating.");
-        return;
-      }
       if (!state.skylines.length) {
         window.alert("Draw or load at least one skyline first.");
         return;
@@ -252,9 +291,16 @@ function paint() {
         return;
       }
 
+      runtime.isCalculating = true;
+      paint();
+      await nextFrame();
+      const minimumStatusTime = delay(350);
+
       try {
         const calculationState = withSequentialSkylineIds(state);
         const results = await calculateProject(calculationState.skylines, calculationState.assumptions, provider);
+        await minimumStatusTime;
+        runtime.isCalculating = false;
         commit({
           results,
           terrainStatus: {
@@ -263,6 +309,8 @@ function paint() {
           }
         });
       } catch (error) {
+        await minimumStatusTime;
+        runtime.isCalculating = false;
         commit({
           results: [],
           terrainStatus: {
@@ -386,20 +434,21 @@ function paint() {
         });
       });
 
-      // ── 5. Skid / landing point (rendered on top) ──────────────────────────
-      if (state.skid) {
+      // ── 5. Skid / landing points (rendered on top) ─────────────────────────
+      normalizeSkids(state).forEach((skid, index) => {
         features.push({
           type: "Feature",
           properties: {
             layer:          "skid",
-            label:          "Skid / Landing",
+            label:          `Skid / Landing ${index + 1}`,
+            skid_id:        String(index + 1),
             "marker-color": "#111827",
             "marker-size":  "large",
             "marker-symbol": "circle"
           },
-          geometry: { type: "Point", coordinates: state.skid }
+          geometry: { type: "Point", coordinates: skid }
         });
-      }
+      });
 
       if (!features.length) {
         window.alert("Nothing to export — draw some geometry first.");
@@ -417,26 +466,148 @@ function paint() {
     },
     reset() {
       mapApi?.blur();
-      if (window.confirm("Reset the project? This clears geometry, assumptions, and results.")) {
+      if (window.confirm("Reset the project? This clears all geometry, corridors, results, assumptions, imported layers, and the project name.")) {
         clearState();
         state = createInitialState();
+        geotiffTerrainProvider.reset();
+        runtime.isCalculating = false;
+        runtime.showAdvancedTools = false;
+        stopLocationTracking({
+          clearLocation: true,
+          status: geolocationSupported()
+            ? "Location off."
+            : "Location is unavailable on this device/browser."
+        });
+        root.querySelectorAll("input[type='file']").forEach((input) => { input.value = ""; });
+        mapApi?.resetProject?.(buildViewState());
         paint();
-        mapApi?.syncDraw(state);
       }
+    },
+    toggleAdvancedTools() {
+      runtime.showAdvancedTools = !runtime.showAdvancedTools;
+      paint();
+    },
+    toggleLocationTracking() {
+      setLocationTracking(!runtime.locationTracking);
     }
   });
 
   if (!mapApi) {
     const mapContainer = document.querySelector("#map");
-    mapApi = createMap(mapContainer, state, (geometry) => {
+    mapApi = createMap(mapContainer, viewState, (geometry) => {
       commit({ ...geometry, results: [] });
     });
   } else {
-    mapApi.render(state);
+    mapApi.render(viewState);
   }
 }
 
+function buildViewState() {
+  return {
+    ...state,
+    isFieldMode: runtime.isFieldMode,
+    showAdvancedTools: runtime.showAdvancedTools,
+    locationTracking: runtime.locationTracking,
+    locationStatus: runtime.locationStatus,
+    locationErrorKind: runtime.locationErrorKind,
+    isCalculating: runtime.isCalculating,
+    userLocation: runtime.userLocation,
+    userLocationAccuracyM: runtime.userLocationAccuracyM
+  };
+}
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function setLocationTracking(enabled) {
+  if (enabled) {
+    if (!geolocationSupported()) {
+      runtime.locationTracking = false;
+      runtime.locationErrorKind = "unsupported";
+      runtime.locationStatus = "Location is unavailable on this device/browser.";
+      paint();
+      return;
+    }
+    if (runtime.locationTracking) return;
+
+    runtime.locationTracking = true;
+    runtime.locationErrorKind = "";
+    runtime.locationStatus = "Finding your location...";
+    runtime.firstFixCentered = false;
+    runtime.stopLocationWatch?.();
+    runtime.stopLocationWatch = startLocationWatch({
+      onPosition(position) {
+        runtime.locationTracking = true;
+        runtime.locationErrorKind = "";
+        runtime.userLocation = position.lngLat;
+        runtime.userLocationAccuracyM = position.accuracyM;
+        runtime.locationStatus = position.accuracyM
+          ? `Location on - +/- ${formatAccuracy(position.accuracyM)}`
+          : "Location on";
+        mapApi?.setUserLocation?.(position.lngLat, position.accuracyM);
+        if (!runtime.firstFixCentered && mapApi?.centerOnLocation) {
+          mapApi.centerOnLocation(position.lngLat);
+          runtime.firstFixCentered = true;
+        }
+        paint();
+      },
+      onError(error) {
+        runtime.locationErrorKind = error.kind;
+        runtime.locationStatus = error.message;
+        if (error.kind === "permission-denied" || error.kind === "unsupported") {
+          stopLocationTracking({
+            clearLocation: true,
+            status: error.message,
+            preserveError: true
+          });
+          paint();
+          return;
+        }
+        if (error.kind === "position-unavailable") {
+          runtime.userLocation = null;
+          runtime.userLocationAccuracyM = null;
+          mapApi?.clearUserLocation?.();
+        }
+        paint();
+      }
+    });
+    paint();
+    return;
+  }
+
+  stopLocationTracking({ clearLocation: true, status: "Location off." });
+  paint();
+}
+
+function stopLocationTracking({ clearLocation = false, status = "", preserveError = false } = {}) {
+  runtime.stopLocationWatch?.();
+  runtime.stopLocationWatch = null;
+  runtime.locationTracking = false;
+  runtime.firstFixCentered = false;
+  if (clearLocation) {
+    runtime.userLocation = null;
+    runtime.userLocationAccuracyM = null;
+    mapApi?.clearUserLocation?.();
+  }
+  if (!preserveError) {
+    runtime.locationErrorKind = "";
+  }
+  if (status) {
+    runtime.locationStatus = status;
+  }
+}
+
+function formatAccuracy(accuracyM) {
+  return accuracyM < 1 ? "<1 m" : `${Math.round(accuracyM)} m`;
+}
+
 function withSequentialSkylineIds(project) {
+  const skids = normalizeSkids(project);
   const skylines = (project.skylines ?? []).map((skyline, index) => ({
     ...skyline,
     id: String(index + 1)
@@ -445,7 +616,20 @@ function withSequentialSkylineIds(project) {
     ...result,
     id: String(index + 1)
   }));
-  return { ...project, skylines, results };
+  return { ...project, skid: skids.at(-1) ?? null, skids, skylines, results };
+}
+
+function normalizeSkids(project) {
+  const skids = Array.isArray(project.skids) ? project.skids.filter(isLngLat).map((coordinate) => [...coordinate]) : [];
+  if (!skids.length && isLngLat(project.skid)) skids.push([...project.skid]);
+  return skids;
+}
+
+function isLngLat(coordinate) {
+  return Array.isArray(coordinate)
+    && coordinate.length >= 2
+    && Number.isFinite(coordinate[0])
+    && Number.isFinite(coordinate[1]);
 }
 
 function selectedTerrainProvider() {
@@ -512,23 +696,6 @@ function geoPdfOverlayToFeatureCollection(overlay) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value)));
-}
-
-function assumptionsConfigured(projectState) {
-  if (projectState.assumptionsTouched) return true;
-  if ((projectState.results ?? []).length > 0) return true;
-  const assumptions = projectState.assumptions ?? {};
-  if (String(assumptions.haulerName ?? "").trim()) return true;
-  return Object.keys(DEFAULT_ASSUMPTIONS).some((key) => assumptionDiffers(assumptions[key], DEFAULT_ASSUMPTIONS[key]));
-}
-
-function assumptionDiffers(value, baseline) {
-  const currentNumber = Number(value);
-  const baselineNumber = Number(baseline);
-  if (Number.isFinite(currentNumber) && Number.isFinite(baselineNumber)) {
-    return Math.abs(currentNumber - baselineNumber) > 1e-6;
-  }
-  return String(value ?? "") !== String(baseline ?? "");
 }
 
 try {

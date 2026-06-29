@@ -542,6 +542,52 @@ h1 {
   opacity: 1;
 }
 
+.workflow-primary-action.is-loading {
+  border-color: #95b89c;
+  background: #dceee0;
+  color: #265a34;
+}
+
+.field-mode-toolbar {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.field-mode-btn {
+  min-height: 34px;
+  border-radius: 8px;
+  border-color: #b8c6b7;
+  background: #f4f7f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.location-status {
+  display: none;
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid #d6e2ef;
+  border-radius: 8px;
+  background: #eef4fc;
+  color: #204b84;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.location-status--active {
+  border-color: #b6d6bd;
+  background: #ecf8ef;
+  color: #1f5a31;
+}
+
+.location-status--error {
+  border-color: #e2c0c0;
+  background: #fff4f4;
+  color: #8d1d1d;
+}
+
 .workflow-steps {
   display: grid;
   gap: 9px;
@@ -1083,6 +1129,81 @@ dialog::backdrop {
     border-left: 0;
     border-top: 1px solid #d7ded2;
     max-height: 42vh;
+  }
+}
+
+@media (max-width: 760px) {
+  .is-field-mode .topbar {
+    padding: 6px 10px;
+  }
+
+  .is-field-mode .topbar p {
+    display: none;
+  }
+
+  .is-field-mode .project-name-field {
+    margin-top: 8px;
+  }
+
+  .is-field-mode .project-name-field span {
+    display: none;
+  }
+
+  .is-field-mode .project-name-field input {
+    padding: 6px 8px;
+  }
+
+  .is-field-mode .panel {
+    padding: 10px;
+    gap: 8px;
+    max-height: 46vh;
+  }
+
+  .is-field-mode .workflow {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .is-field-mode .workflow-head {
+    gap: 7px;
+    margin-bottom: 0;
+  }
+
+  .is-field-mode .workflow-steps {
+    display: none;
+  }
+
+  .is-field-mode .field-mode-toolbar {
+    display: grid;
+  }
+
+  .is-field-mode .location-status {
+    display: block;
+  }
+
+  .is-field-mode .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .is-field-mode:not(.show-advanced-tools) .actions-panel,
+  .is-field-mode:not(.show-advanced-tools) .basemap-section,
+  .is-field-mode:not(.show-advanced-tools) .terrain-panel,
+  .is-field-mode:not(.show-advanced-tools) .user-data-panel {
+    display: none;
+  }
+
+  .is-field-mode:not(.show-advanced-tools) .map-legend {
+    display: none;
+  }
+
+  .skyline-profile-popup .mapboxgl-popup-content {
+    min-width: 220px;
+    max-width: calc(100vw - 32px);
+    padding: 8px 10px;
+  }
+
+  .skyline-popup-chart svg {
+    height: 74px;
   }
 }
 

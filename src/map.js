@@ -23,7 +23,8 @@ const SOURCE_IDS = {
   results: "result-segments",
   labels: "skyline-labels",
   vertexPulse: "vertex-pulse",
-  geotiffFootprint: "geotiff-footprint"
+  geotiffFootprint: "geotiff-footprint",
+  userLocation: "user-location"
 };
 const LAYER_IDS = {
   linzHillshade: "linz-hillshade-overlay-layer",
@@ -104,6 +105,9 @@ export function createMap(container, state, onGeometryChange) {
     className: "skyline-profile-popup"
   });
   let skylineHoverEventsBound = false;
+  let fieldModeEditEnabled = false;
+  let selectedDrawFeatureIds = [];
+  let activeProfileSkylineId = null;
 
   function hideSentinelOverlay() {
     sentinelLoadingDone = true;
@@ -327,23 +331,110 @@ export function createMap(container, state, onGeometryChange) {
       if (!feature) return;
       const skylineId = skylineIdFromFeature(feature);
       if (!skylineId) return;
+      activeProfileSkylineId = skylineId;
       const popupHtml = skylineProfilePopupHtml(currentState, skylineId);
+      const lngLat = event.lngLat ?? map.unproject(eventPoint(event));
       map.getCanvas().style.cursor = "pointer";
       skylinePopup
-        .setLngLat(event.lngLat)
+        .setLngLat(lngLat)
         .setHTML(popupHtml)
         .addTo(map);
     };
 
-    const hidePopup = () => {
+    const hideFieldPopup = () => {
+      activeProfileSkylineId = null;
       map.getCanvas().style.cursor = "";
       skylinePopup.remove();
     };
 
+    const corridorLayers = () => ["corridor-base", "result-segments"].filter((layerId) => map.getLayer(layerId));
+    const corridorFeatureAtPoint = (point, tolerancePx = 18) => {
+      const layers = corridorLayers();
+      if (!point) return null;
+      if (layers.length) {
+        const hits = map.queryRenderedFeatures([
+          [point.x - tolerancePx, point.y - tolerancePx],
+          [point.x + tolerancePx, point.y + tolerancePx]
+        ], { layers });
+        const layerHit = hits.find((candidate) => skylineIdFromFeature(candidate));
+        if (layerHit) return layerHit;
+      }
+      return skylineFeatureNearPoint(point, tolerancePx);
+    };
+
+    const skylineFeatureNearPoint = (point, tolerancePx) => {
+      let closest = null;
+      (currentState.skylines ?? []).forEach((skyline, index) => {
+        const coordinates = skyline.coordinates ?? [];
+        coordinates.slice(1).forEach((coordinate, coordinateIndex) => {
+          const start = map.project(coordinates[coordinateIndex]);
+          const end = map.project(coordinate);
+          const distancePx = distanceToSegment(point, start, end);
+          if (distancePx <= tolerancePx && (!closest || distancePx < closest.distancePx)) {
+            const skylineId = skyline.id ?? skylineLabel(index);
+            closest = {
+              distancePx,
+              feature: {
+                properties: {
+                  skylineId,
+                  label: skylineId
+                }
+              }
+            };
+          }
+        });
+      });
+      return closest?.feature ?? null;
+    };
+
+    const eventPoint = (event) => event.point ?? event.points?.[0] ?? null;
+
+    const showFieldPopup = (event, feature = event.features?.[0]) => {
+      if (!currentState.isFieldMode) return;
+      event.preventDefault?.();
+      if (!feature) return;
+      fieldModeEditEnabled = false;
+      showPopup({ ...event, features: [feature] });
+    };
+
+    const hidePopup = () => {
+      if (currentState.isFieldMode) return;
+      map.getCanvas().style.cursor = "";
+      skylinePopup.remove();
+    };
+
+    document.addEventListener("pointerdown", (event) => {
+      if (!currentState.isFieldMode) return;
+      if (event.target.closest?.(".mapboxgl-popup")) return;
+      if (event.target.closest?.(".mapbox-gl-draw_trash")) return;
+      hideFieldPopup();
+    }, { capture: true });
+
     ["corridor-base", "result-segments"].forEach((layerId) => {
-      map.on("mouseenter", layerId, showPopup);
-      map.on("mousemove", layerId, showPopup);
+      map.on("mouseenter", layerId, (event) => {
+        if (!currentState.isFieldMode) showPopup(event);
+      });
+      map.on("mousemove", layerId, (event) => {
+        if (!currentState.isFieldMode) showPopup(event);
+      });
       map.on("mouseleave", layerId, hidePopup);
+    });
+
+    map.on("click", (event) => {
+      if (!currentState.isFieldMode) return;
+      const feature = corridorFeatureAtPoint(eventPoint(event));
+      if (feature) {
+        showFieldPopup(event, feature);
+      } else {
+        hideFieldPopup();
+      }
+    });
+
+    map.on("touchend", (event) => {
+      if (!currentState.isFieldMode) return;
+      const point = eventPoint(event);
+      const feature = corridorFeatureAtPoint(point, 24);
+      if (feature) showFieldPopup(event, feature);
     });
   }
 
@@ -394,13 +485,76 @@ export function createMap(container, state, onGeometryChange) {
     }
   }
 
+  function deleteSelectedDrawFeatures() {
+    const selectedIds = typeof draw.getSelectedIds === "function"
+      ? draw.getSelectedIds()
+      : draw.getSelected().features.map((feature) => feature.id);
+    const profileFeatureId = activeProfileSkylineId ? drawFeatureIdForSkyline(activeProfileSkylineId) : null;
+    const idsToDelete = currentState.isFieldMode && profileFeatureId
+      ? [profileFeatureId]
+      : selectedIds.length
+      ? selectedIds
+      : selectedDrawFeatureIds.length
+        ? selectedDrawFeatureIds
+        : profileFeatureId ? [profileFeatureId] : [];
+    if (!idsToDelete.length) return;
+
+    stopPulse();
+    fieldModeEditEnabled = false;
+    activeProfileSkylineId = null;
+    selectedDrawFeatureIds = [];
+    skylinePopup.remove();
+    isBlurring = true;
+    try {
+      draw.changeMode("simple_select");
+    } finally {
+      isBlurring = false;
+    }
+    draw.delete(idsToDelete);
+    // onGeometryChange is called by the draw.delete event handler
+  }
+
+  function drawFeatureIdForSkyline(skylineId) {
+    const feature = draw.getAll().features.find((candidate) =>
+      candidate.geometry.type === "LineString"
+      && String(candidate.properties?.skylineId ?? candidate.id).replace(/^skyline-/, "") === String(skylineId)
+    );
+    if (feature) return feature.id;
+    // Positional fallback for freshly-drawn skylines that have MapboxDraw UUID IDs
+    // and no skylineId property yet (restoreDrawFeatures hasn't run since they were drawn).
+    // readDrawFeatures assigns sequential IDs in the same order, so index 0 === id "1" etc.
+    const lines = draw.getAll().features.filter((f) => f.geometry.type === "LineString");
+    const index = Number(skylineId) - 1;
+    return lines[index]?.id ?? null;
+  }
+
+  bindDrawTrashControl(container, deleteSelectedDrawFeatures);
+
   // As soon as a line or polygon is selected, jump straight into vertex-edit
   // (direct_select) mode and start the pulse so edit state is unmistakable.
   map.on("draw.selectionchange", (e) => {
     if (isBlurring) return;  // don't fight back against blur()
     const feature = e.features?.[0];
     if (!feature) {
+      selectedDrawFeatureIds = [];
       stopPulse();
+      return;
+    }
+    selectedDrawFeatureIds = e.features.map((selectedFeature) => selectedFeature.id).filter(Boolean);
+    if (
+      currentState.isFieldMode
+      && feature.geometry.type === "LineString"
+      && !fieldModeEditEnabled
+    ) {
+      stopPulse();
+      if (draw.getMode() !== "simple_select") {
+        isBlurring = true;
+        try {
+          draw.changeMode("simple_select");
+        } finally {
+          isBlurring = false;
+        }
+      }
       return;
     }
     if (feature.geometry.type === "LineString" || feature.geometry.type === "Polygon") {
@@ -444,12 +598,12 @@ export function createMap(container, state, onGeometryChange) {
   let isSnapping = false;
   let isBlurring = false;
   ["draw.create", "draw.update", "draw.delete"].forEach((eventName) => {
-    map.on(eventName, () => {
+    map.on(eventName, (event) => {
       if (isSnapping || isBlurring) return;
       if (eventName !== "draw.delete") {
         isSnapping = true;
         try {
-          snapLinesToSkid(draw);
+          snapLinesToSkid(draw, event.features);
         } finally {
           isSnapping = false;
         }
@@ -497,7 +651,7 @@ export function createMap(container, state, onGeometryChange) {
         if (activeMode.startsWith("draw_")) pendingDrawMode = activeMode;
         map.setStyle(newStyle);
         map.once("style.load", initStyleLayers);
-      } else if (!styleLoading) {
+      } else if (!styleLoading && projectLayersReady()) {
         renderProjectMap(map, currentState);
         syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
@@ -505,8 +659,23 @@ export function createMap(container, state, onGeometryChange) {
     },
     syncDraw(nextState) {
       currentState = nextState;
-      if (map.loaded() && !styleLoading) {
+      if (!styleLoading && projectLayersReady()) {
         restoreDrawFeatures(draw, currentState);
+        renderProjectMap(map, currentState);
+        syncGeoPdfOverlays(currentState);
+        syncUserLayers(currentState);
+      }
+    },
+    resetProject(nextState) {
+      currentState = nextState;
+      fieldModeEditEnabled = false;
+      selectedDrawFeatureIds = [];
+      activeProfileSkylineId = null;
+      pendingDrawMode = null;
+      skylinePopup.remove();
+      stopPulse();
+      draw.deleteAll();
+      if (!styleLoading && projectLayersReady()) {
         renderProjectMap(map, currentState);
         syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
@@ -536,19 +705,45 @@ export function createMap(container, state, onGeometryChange) {
       map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 800 });
     },
     edit() {
+      fieldModeEditEnabled = true;
       restoreDrawFeatures(draw, currentState);
     },
     startDrawSkid() {
-      selectOrDraw("Point", "draw_point");
+      fieldModeEditEnabled = true;
+      enterGuidedDrawMode("draw_point");
     },
     startDrawSetting() {
+      fieldModeEditEnabled = true;
       selectOrDraw("Polygon", "draw_polygon");
     },
     startDrawCorridor() {
+      fieldModeEditEnabled = true;
       enterGuidedDrawMode("draw_line_string");
+    },
+    centerOnLocation(coordinate) {
+      if (!isLngLat(coordinate)) return;
+      const zoom = Math.max(map.getZoom(), 15);
+      map.easeTo({ center: coordinate, zoom, duration: 800 });
+    },
+    setUserLocation(coordinate, accuracyM = null) {
+      const source = map.getSource(SOURCE_IDS.userLocation);
+      if (!source) return;
+      source.setData(coordinate ? {
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          properties: { accuracyM },
+          geometry: { type: "Point", coordinates: coordinate }
+        }]
+      } : emptyCollection());
+    },
+    clearUserLocation() {
+      const source = map.getSource(SOURCE_IDS.userLocation);
+      if (source) source.setData(emptyCollection());
     },
     blur() {
       // Exit any active draw/edit mode and clear pulse — call this before panel actions
+      fieldModeEditEnabled = false;
       stopPulse();
       const mode = draw.getMode();
       if (mode !== "simple_select") {
@@ -596,6 +791,10 @@ export function createMap(container, state, onGeometryChange) {
       }
     }
   };
+
+  function projectLayersReady() {
+    return map.isStyleLoaded() && Boolean(map.getSource(SOURCE_IDS.results));
+  }
 }
 
 function snapshotCamera(map) {
@@ -610,7 +809,7 @@ function snapshotCamera(map) {
 
 function projectBounds(state) {
   const coordinates = [
-    ...(state.skid ? [state.skid] : []),
+    ...skidPoints(state),
     ...flattenCoordinates(state.settingPolygon),
     ...(state.skylines ?? []).flatMap((skyline) => skyline.coordinates ?? []),
     ...(state.geopdfOverlays ?? []).flatMap((overlay) => overlay.coordinates ?? []),
@@ -634,6 +833,12 @@ function isLngLat(coordinate) {
     && coordinate.length >= 2
     && Number.isFinite(coordinate[0])
     && Number.isFinite(coordinate[1]);
+}
+
+function skidPoints(state) {
+  const skids = Array.isArray(state.skids) ? state.skids.filter(isLngLat) : [];
+  if (skids.length) return skids;
+  return isLngLat(state.skid) ? [state.skid] : [];
 }
 
 function waitForMapRender(map) {
@@ -734,7 +939,10 @@ function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "google-sa
 function restoreDrawFeatures(draw, state) {
   draw.deleteAll();
   const features = [];
-  if (state.skid) features.push({ id: "skid", type: "Feature", properties: { role: "skid" }, geometry: { type: "Point", coordinates: state.skid } });
+  skidPoints(state).forEach((skid, index) => {
+    const id = String(index + 1);
+    features.push({ id: `skid-${id}`, type: "Feature", properties: { role: "skid", skidId: id }, geometry: { type: "Point", coordinates: skid } });
+  });
   if (state.settingPolygon) features.push({ id: "setting", type: "Feature", properties: { role: "setting" }, geometry: { type: "Polygon", coordinates: state.settingPolygon } });
   state.skylines.forEach((skyline, index) => {
     const id = String(index + 1);
@@ -745,11 +953,12 @@ function restoreDrawFeatures(draw, state) {
 
 function readDrawFeatures(draw) {
   const features = draw.getAll().features;
-  const point = features.find((feature) => feature.geometry.type === "Point");
+  const points = features.filter((feature) => feature.geometry.type === "Point").map((feature) => feature.geometry.coordinates);
   const polygon = features.find((feature) => feature.geometry.type === "Polygon");
   const lines = features.filter((feature) => feature.geometry.type === "LineString");
   return {
-    skid: point?.geometry.coordinates ?? null,
+    skid: points.at(-1) ?? null,
+    skids: points,
     settingPolygon: polygon?.geometry.coordinates ?? null,
     skylines: lines.map((feature, index) => ({
       id: String(index + 1),
@@ -758,14 +967,19 @@ function readDrawFeatures(draw) {
   };
 }
 
-function snapLinesToSkid(draw) {
+function snapLinesToSkid(draw, changedFeatures = null) {
   const collection = draw.getAll();
-  const skid = collection.features.find((feature) => feature.geometry.type === "Point")?.geometry.coordinates;
+  const skid = collection.features.filter((feature) => feature.geometry.type === "Point").at(-1)?.geometry.coordinates;
   if (!skid) return false;
+  const changedLineIds = new Set((changedFeatures ?? [])
+    .filter((feature) => feature.geometry?.type === "LineString")
+    .map((feature) => feature.id));
+  if (changedFeatures && !changedLineIds.size) return false;
 
   let changed = false;
   const snappedFeatures = collection.features.map((feature) => {
     if (feature.geometry.type !== "LineString" || feature.geometry.coordinates.length < 2) return feature;
+    if (changedLineIds.size && !changedLineIds.has(feature.id)) return feature;
 
     let coordinates = feature.geometry.coordinates.map((coordinate) => [...coordinate]);
     const firstIndex = 0;
@@ -802,6 +1016,18 @@ function snapLinesToSkid(draw) {
 
 function sameCoordinate(a, b) {
   return Math.abs(a[0] - b[0]) < 1e-10 && Math.abs(a[1] - b[1]) < 1e-10;
+}
+
+function distanceToSegment(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  const projectionX = start.x + t * dx;
+  const projectionY = start.y + t * dy;
+  return Math.hypot(point.x - projectionX, point.y - projectionY);
 }
 
 function addProjectLayers(map) {
@@ -880,6 +1106,30 @@ function addProjectLayers(map) {
     }
   });
 
+  map.addSource(SOURCE_IDS.userLocation, { type: "geojson", data: emptyCollection() });
+  map.addLayer({
+    id: "user-location-halo",
+    type: "circle",
+    source: SOURCE_IDS.userLocation,
+    paint: {
+      "circle-radius": 15,
+      "circle-color": "#2563eb",
+      "circle-opacity": 0.2
+    }
+  });
+  map.addLayer({
+    id: "user-location-dot",
+    type: "circle",
+    source: SOURCE_IDS.userLocation,
+    paint: {
+      "circle-radius": 6,
+      "circle-color": "#2563eb",
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+      "circle-opacity": 0.95
+    }
+  });
+
   map.addSource(SOURCE_IDS.labels, { type: "geojson", data: emptyCollection() });
   map.addLayer({
     id: "skyline-labels",
@@ -937,8 +1187,6 @@ function addProjectLayers(map) {
 }
 
 function renderProjectMap(map, state) {
-  if (!map.getSource(SOURCE_IDS.results)) return;
-
   // GeoTIFF footprint — show when a DEM is loaded
   if (map.getSource(SOURCE_IDS.geotiffFootprint)) {
     const b = state.geotiffMeta?.boundsLngLat;
@@ -955,27 +1203,44 @@ function renderProjectMap(map, state) {
     } : emptyCollection());
   }
 
-  map.getSource(SOURCE_IDS.setting).setData(state.settingPolygon ? {
-    type: "FeatureCollection",
-    features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: state.settingPolygon } }]
-  } : emptyCollection());
+  if (map.getSource(SOURCE_IDS.setting)) {
+    map.getSource(SOURCE_IDS.setting).setData(state.settingPolygon ? {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: state.settingPolygon } }]
+    } : emptyCollection());
+  }
 
-  map.getSource(SOURCE_IDS.skid).setData(state.skid ? {
-    type: "FeatureCollection",
-    features: [{ type: "Feature", properties: { label: "Skid" }, geometry: { type: "Point", coordinates: state.skid } }]
-  } : emptyCollection());
+  if (map.getSource(SOURCE_IDS.skid)) {
+    map.getSource(SOURCE_IDS.skid).setData(state.skid ? {
+      type: "FeatureCollection",
+      features: skidPoints(state).map((skid, index) => ({
+        type: "Feature",
+        properties: { label: `Skid ${index + 1}` },
+        geometry: { type: "Point", coordinates: skid }
+      }))
+    } : emptyCollection());
+  }
 
-  map.getSource(SOURCE_IDS.corridors).setData({
-    type: "FeatureCollection",
-    features: state.skylines.map((skyline, index) => ({
-      type: "Feature",
-      properties: {
-        label: skyline.id ?? skylineLabel(index),
-        skylineId: skyline.id ?? skylineLabel(index)
-      },
-      geometry: { type: "LineString", coordinates: skyline.coordinates }
-    }))
-  });
+  if (map.getSource(SOURCE_IDS.userLocation)) {
+    map.getSource(SOURCE_IDS.userLocation).setData(state.userLocation ? {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: state.userLocation } }]
+    } : emptyCollection());
+  }
+
+  if (map.getSource(SOURCE_IDS.corridors)) {
+    map.getSource(SOURCE_IDS.corridors).setData({
+      type: "FeatureCollection",
+      features: state.skylines.map((skyline, index) => ({
+        type: "Feature",
+        properties: {
+          label: skyline.id ?? skylineLabel(index),
+          skylineId: skyline.id ?? skylineLabel(index)
+        },
+        geometry: { type: "LineString", coordinates: skyline.coordinates }
+      }))
+    });
+  }
 
   // Glow fades away once results are calculated; comes back if results are cleared
   const hasResults = state.results.some((r) => r.samples?.length > 1);
@@ -985,23 +1250,25 @@ function renderProjectMap(map, state) {
     map.setPaintProperty("corridor-base", "line-width", hasResults ? 2 : 3);
   }
 
-  map.getSource(SOURCE_IDS.results).setData({
-    type: "FeatureCollection",
-    features: state.results.flatMap((result) =>
-      result.samples.slice(1).map((sample, index) => ({
-        type: "Feature",
-        properties: {
-          color: COLORS[sample.status],
-          status: sample.status,
-          skylineId: result.id
-        },
-        geometry: {
-          type: "LineString",
-          coordinates: [result.samples[index].coordinate, sample.coordinate]
-        }
-      }))
-    )
-  });
+  if (map.getSource(SOURCE_IDS.results)) {
+    map.getSource(SOURCE_IDS.results).setData({
+      type: "FeatureCollection",
+      features: state.results.flatMap((result) =>
+        result.samples.slice(1).map((sample, index) => ({
+          type: "Feature",
+          properties: {
+            color: COLORS[sample.status],
+            status: sample.status,
+            skylineId: result.id
+          },
+          geometry: {
+            type: "LineString",
+            coordinates: [result.samples[index].coordinate, sample.coordinate]
+          }
+        }))
+      )
+    });
+  }
 
   const settingArea = polygonAreaSquareMetres(state.settingPolygon);
   const settingCentroid = polygonCentroid(state.settingPolygon);
@@ -1013,17 +1280,19 @@ function renderProjectMap(map, state) {
     geometry: { type: "Point", coordinates: settingCentroid }
   }] : [];
 
-  map.getSource(SOURCE_IDS.labels).setData({
-    type: "FeatureCollection",
-    features: [
-      ...settingLabel,
-      ...state.skylines.map((skyline, index) => ({
-        type: "Feature",
-        properties: { label: skyline.id ?? skylineLabel(index) },
-        geometry: { type: "Point", coordinates: labelCoordinate(skyline.coordinates) }
-      }))
-    ]
-  });
+  if (map.getSource(SOURCE_IDS.labels)) {
+    map.getSource(SOURCE_IDS.labels).setData({
+      type: "FeatureCollection",
+      features: [
+        ...settingLabel,
+        ...state.skylines.map((skyline, index) => ({
+          type: "Feature",
+          properties: { label: skyline.id ?? skylineLabel(index) },
+          geometry: { type: "Point", coordinates: labelCoordinate(skyline.coordinates) }
+        }))
+      ]
+    });
+  }
 }
 
 function emptyCollection() {
@@ -1134,6 +1403,7 @@ function createFallbackMap(
     syncDraw(nextState) {
       state = nextState;
     },
+    centerOnLocation() {},
     edit() {},
     startDrawSkid() {},
     startDrawSetting() {},
@@ -1168,7 +1438,7 @@ function renameDrawControls(container) {
       [".mapbox-gl-draw_point", "Add skid"],
       [".mapbox-gl-draw_line", "Draw skyline corridor"],
       [".mapbox-gl-draw_polygon", "Draw harvest setting"],
-      [".mapbox-gl-draw_trash", "Delete selected drawing"]
+      [".mapbox-gl-draw_trash", "Delete selected layer"]
     ];
 
     labels.forEach(([selector, label]) => {
@@ -1177,6 +1447,18 @@ function renameDrawControls(container) {
       button.title = label;
       button.setAttribute("aria-label", label);
     });
+  });
+}
+
+function bindDrawTrashControl(container, onDeleteSelected) {
+  window.requestAnimationFrame(() => {
+    const button = container.querySelector(".mapbox-gl-draw_trash");
+    if (!button) return;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      onDeleteSelected();
+    }, true);
   });
 }
 
