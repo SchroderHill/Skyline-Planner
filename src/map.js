@@ -4,7 +4,6 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import { distance } from "./clearance.js";
 import { formatArea, polygonAreaSquareMetres, polygonCentroid } from "./geometry.js";
-import { MapboxTerrainProvider } from "./terrain.js";
 
 export const DEFAULT_MAP_VIEW = {
   center: [173.52, -41.25],
@@ -61,8 +60,7 @@ export function createMap(container, state, onGeometryChange) {
       style: currentBaseStyle,
       center: DEFAULT_MAP_VIEW.center,
       zoom: DEFAULT_MAP_VIEW.zoom,
-      preserveDrawingBuffer: true,
-      maxTileCacheZoomLevels: 20  // keep tiles cached across more zoom levels in-session
+      preserveDrawingBuffer: true
     });
   } catch (error) {
     console.error("Map initialization failed. Falling back to no-map mode.", error);
@@ -755,19 +753,6 @@ export function createMap(container, state, onGeometryChange) {
         }
       }
     },
-    hasTerrain() {
-      return Boolean(map.getSource(TERRAIN_SOURCE_ID));
-    },
-    getTerrainProvider() {
-      // Don't require map.loaded() — that returns false whenever any tile is still
-      // fetching (e.g. slow Sentinel-2 tiles), which would block Calculate unfairly.
-      // Terrain elevation queries work as long as the source and terrain are set.
-      if (!map.getSource(TERRAIN_SOURCE_ID)) return null;
-      return new MapboxTerrainProvider((coordinate) => {
-        const elevation = map.queryTerrainElevation(coordinate, { exaggerated: false });
-        return Number.isFinite(elevation) ? elevation : null;
-      });
-    },
     async captureImage(projectState = currentState) {
       const previousCamera = snapshotCamera(map);
       const bounds = projectBounds(projectState);
@@ -1408,12 +1393,6 @@ function createFallbackMap(
     startDrawSkid() {},
     startDrawSetting() {},
     startDrawCorridor() {},
-    hasTerrain() {
-      return false;
-    },
-    getTerrainProvider() {
-      return null;
-    },
     async captureImage() {
       return null;
     }

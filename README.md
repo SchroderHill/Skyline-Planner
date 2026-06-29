@@ -23,6 +23,8 @@ VITE_LINZ_API_KEY=your_linz_basemaps_api_key_here
 
 Without a token, the app opens in a no-map fallback mode with demo geometry so the clearance engine and tests still work.
 
+Clearance calculations request fixed zoom 14, 512-pixel Mapbox Terrain-RGB tiles directly and cache decoded tiles in memory. This keeps terrain results independent of the visible basemap, map zoom, and Mapbox GL render timing. These requests use Mapbox's Raster Tiles API; use an uploaded GeoTIFF DEM when a controlled project-specific elevation source is required.
+
 ## GitHub Pages Deployment
 
 The site is deployed by GitHub Actions using [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml).
@@ -30,7 +32,7 @@ The site is deployed by GitHub Actions using [.github/workflows/deploy-pages.yml
 1. In repository settings, set Pages source to GitHub Actions.
 2. Add these repository secrets so production builds can render public map tiles:
 
-	- VITE_MAPBOX_TOKEN (required for Mapbox basemap and terrain)
+	- VITE_MAPBOX_TOKEN (required for Mapbox basemap and fixed-resolution Terrain-RGB sampling)
 	- VITE_LINZ_API_KEY (optional, for LINZ hillshade)
 	- VITE_LINZ_LDS_KEY (optional, for LINZ parcel overlays)
 	- VITE_SENTINEL_INSTANCE_ID (optional, for Sentinel-2 imagery)

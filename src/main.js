@@ -11,6 +11,7 @@ import {
   terrainWarningForMode
 } from "./terrain.js";
 import { GeoTiffTerrainProvider } from "./geotiff-terrain.js";
+import { MapboxTerrainRgbProvider } from "./terrain-rgb.js";
 import { parseGeoPdf } from "./geopdf.js";
 import { geolocationSupported, startLocationWatch } from "./location.js";
 import { parseKml, parseShapefile, nextLayerColor } from "./user-layers.js";
@@ -49,6 +50,9 @@ if (isEmbedded) {
 
 const mockTerrainProvider = new MockTerrainProvider();
 const geotiffTerrainProvider = new GeoTiffTerrainProvider();
+const mapboxTerrainProvider = import.meta.env.VITE_MAPBOX_TOKEN
+  ? new MapboxTerrainRgbProvider({ accessToken: import.meta.env.VITE_MAPBOX_TOKEN })
+  : null;
 const FIELD_MODE_QUERY = "(max-width: 760px)";
 const fieldModeMedia = typeof window.matchMedia === "function" ? window.matchMedia(FIELD_MODE_QUERY) : null;
 
@@ -213,7 +217,8 @@ function paint() {
           width: parsed.width,
           height: parsed.height,
           pageCount: parsed.pageCount,
-          transformRmse: parsed.transformRmse
+          fitErrorMeters: parsed.fitErrorMeters,
+          fitWarning: parsed.fitWarning
         };
         const geopdfOverlays = [...(state.geopdfOverlays ?? []), overlay];
         commit({
@@ -286,7 +291,7 @@ function paint() {
       if (!provider) {
         const warning = state.terrainMode === TERRAIN_MODES.GEOTIFF
           ? "No GeoTIFF DEM loaded. Upload a .tif file above, then recalculate."
-          : "Mapbox terrain is not ready or did not load. Choose mock terrain to run a non-assessment calculation.";
+          : "Mapbox terrain is unavailable because no access token is configured.";
         commit({ terrainStatus: { source: terrainSourceNote(state.terrainMode), warning } });
         return;
       }
@@ -305,7 +310,7 @@ function paint() {
           results,
           terrainStatus: {
             source: terrainSourceNote(provider.mode),
-            warning: terrainWarningForMode(provider.mode, mapApi?.hasTerrain?.())
+            warning: terrainWarningForMode(provider.mode, Boolean(mapboxTerrainProvider))
           }
         });
       } catch (error) {
@@ -315,7 +320,9 @@ function paint() {
           results: [],
           terrainStatus: {
             source: terrainSourceNote(state.terrainMode),
-            warning: `${error.message} Choose mock terrain to run a non-assessment calculation.`
+            warning: state.terrainMode === TERRAIN_MODES.MAPBOX
+              ? `${error.message} Retry Calculate when terrain data is available.`
+              : error.message
           }
         });
       }
@@ -637,7 +644,7 @@ function selectedTerrainProvider() {
   if (state.terrainMode === TERRAIN_MODES.GEOTIFF) {
     return geotiffTerrainProvider._ready ? geotiffTerrainProvider : null;
   }
-  return mapApi?.getTerrainProvider?.() ?? null;
+  return mapboxTerrainProvider;
 }
 
 function terrainStatusFor(terrainMode) {

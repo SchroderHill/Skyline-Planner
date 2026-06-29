@@ -276,7 +276,9 @@ function updateApp(root, state) {
   workflowPrimaryAction.classList.toggle("is-loading", Boolean(state.isCalculating));
   workflowPrimaryAction.setAttribute("aria-busy", String(Boolean(state.isCalculating)));
 
-  root.querySelector("#calculate").textContent = state.isCalculating ? "Calculating..." : state.results.length ? "Recalculate" : "Calculate";
+  root.querySelector("#calculate").textContent = state.isCalculating
+    ? state.terrainMode === "mapbox" ? "Loading terrain..." : "Calculating..."
+    : state.results.length ? "Recalculate" : "Calculate";
   root.querySelector("#calculate").disabled = state.isCalculating || !workflow.canCalculate;
   const skidCount = skidPoints(state).length;
   root.querySelector("#drawOptionalArea").disabled = !skidCount;
@@ -383,6 +385,7 @@ function workflowModel(state) {
   const hasCorridors = (state.skylines ?? []).length > 0;
   const hasResults = (state.results ?? []).length > 0;
   const isCalculating = Boolean(state.isCalculating);
+  const calculatingLabel = state.terrainMode === "mapbox" ? "Loading terrain..." : "Calculating...";
   const canCalculate = hasCorridors && !isCalculating;
 
   const steps = [
@@ -404,11 +407,11 @@ function workflowModel(state) {
     },
     {
       label: hasResults ? "Recalculate and review" : "Calculate clearance",
-      detail: isCalculating ? "Running clearance calculation..." : hasResults ? "Results are ready." : "Run clearance using the saved or default assumptions.",
+      detail: isCalculating ? calculatingLabel : hasResults ? "Results are ready." : "Run clearance using the saved or default assumptions.",
       complete: hasResults && !isCalculating,
       enabled: canCalculate,
       action: "calculate",
-      actionLabel: isCalculating ? "Calculating..." : hasResults ? "Recalculate" : "Calculate"
+      actionLabel: isCalculating ? calculatingLabel : hasResults ? "Recalculate" : "Calculate"
     }
   ];
 
@@ -416,7 +419,9 @@ function workflowModel(state) {
   if (currentIndex >= 0) steps[currentIndex].current = true;
 
   let hint = "Use the steps in order to complete a full planning run.";
-  if (isCalculating) hint = "Calculating skyline clearance...";
+  if (isCalculating) hint = state.terrainMode === "mapbox"
+    ? "Loading and sampling Mapbox terrain..."
+    : "Calculating skyline clearance...";
   else if (!hasSkid) hint = "Step 1: Place the skid / landing point on the map.";
   else if (!hasCorridors) hint = "Step 2: Draw one or more skyline corridors from skid to tailhold.";
   else if (!hasResults) hint = "Step 3: Run Calculate to evaluate clearances.";
@@ -510,9 +515,13 @@ function renderGeoPdfOverlays(overlays) {
     const opacity = Number.isFinite(Number(overlay.opacity)) ? Number(overlay.opacity) : 0.65;
     const dims = overlay.width && overlay.height ? `${overlay.width}×${overlay.height}px` : "";
     const crs = overlay.crsLabel ? ` ${overlay.crsLabel}` : "";
+    const fitErrorMeters = Number.isFinite(Number(overlay.fitErrorMeters)) ? Number(overlay.fitErrorMeters) : null;
     const rmse = Number.isFinite(Number(overlay.transformRmse)) ? Number(overlay.transformRmse) : null;
-    const rmseText = rmse == null ? "" : ` Fit ${rmse.toFixed(3)}°`;
-    const lowConfidenceClass = rmse != null && rmse > 0.35 ? " geopdf-meta--warn" : "";
+    const fitText = fitErrorMeters == null
+      ? (rmse == null ? "" : ` Fit ${rmse.toFixed(3)}°`)
+      : ` Fit ${fitErrorMeters < 10 ? fitErrorMeters.toFixed(1) : Math.round(fitErrorMeters)} m`;
+    const lowConfidence = overlay.fitWarning === true || (fitErrorMeters == null && rmse != null && rmse > 0.35);
+    const lowConfidenceClass = lowConfidence ? " geopdf-meta--warn" : "";
     return `
       <div class="geopdf-layer-item">
         <div class="user-layer-item">
@@ -527,7 +536,7 @@ function renderGeoPdfOverlays(overlays) {
           <input type="range" min="0" max="1" step="0.05" value="${opacity.toFixed(2)}" data-geopdf-opacity="${escapeHtml(overlay.id)}" />
           <strong>${Math.round(opacity * 100)}%</strong>
         </label>
-        <p class="geopdf-meta${lowConfidenceClass}">${escapeHtml(dims)}${escapeHtml(crs)}${escapeHtml(rmseText)}</p>
+        <p class="geopdf-meta${lowConfidenceClass}">${escapeHtml(dims)}${escapeHtml(crs)}${escapeHtml(fitText)}</p>
       </div>
     `;
   }).join("");

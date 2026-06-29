@@ -9,6 +9,7 @@ import {
 describe("terrain provider selection", () => {
   it("defaults to Mapbox terrain when it is available", () => {
     expect(defaultTerrainMode(true)).toBe(TERRAIN_MODES.MAPBOX);
+    expect(terrainSourceNote(TERRAIN_MODES.MAPBOX)).toContain("Terrain-RGB");
   });
 
   it("defaults to mock terrain when Mapbox terrain is unavailable", () => {
