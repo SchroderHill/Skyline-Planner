@@ -60,6 +60,7 @@ let state = loadState();
 state.terrainMode ??= defaultTerrainMode(Boolean(import.meta.env.VITE_MAPBOX_TOKEN));
 state.terrainStatus ??= terrainStatusFor(state.terrainMode);
 let mapApi;
+let projectRevision = 0;
 state = withSequentialSkylineIds(state);
 const runtime = {
   isFieldMode: fieldModeMedia?.matches ?? false,
@@ -136,9 +137,11 @@ function paint() {
       });
     },
     async loadGeoTiff(file) {
+      const revision = projectRevision;
       commit({ geotiffMeta: null, geotiffError: null, results: [] });
       try {
         const meta = await geotiffTerrainProvider.loadFile(file);
+        if (revision !== projectRevision) return;
         commit({
           geotiffMeta: meta,
           geotiffError: null,
@@ -148,6 +151,7 @@ function paint() {
           }
         });
       } catch (err) {
+        if (revision !== projectRevision) return;
         commit({
           geotiffMeta: null,
           geotiffError: err.message,
@@ -159,8 +163,10 @@ function paint() {
       }
     },
     async loadKml(file) {
+      const revision = projectRevision;
       try {
         const geojson = await parseKml(file);
+        if (revision !== projectRevision) return;
         const layer = {
           id: `ul-${Date.now()}`,
           name: file.name,
@@ -173,12 +179,15 @@ function paint() {
         commit({ userLayers });
         mapApi?.flyToLayer(geojson);
       } catch (err) {
+        if (revision !== projectRevision) return;
         window.alert(`Failed to import KML: ${err.message}`);
       }
     },
     async loadShapefile(file) {
+      const revision = projectRevision;
       try {
         const geojson = await parseShapefile(file);
+        if (revision !== projectRevision) return;
         const layer = {
           id: `ul-${Date.now()}`,
           name: file.name,
@@ -191,10 +200,12 @@ function paint() {
         commit({ userLayers });
         mapApi?.flyToLayer(geojson);
       } catch (err) {
+        if (revision !== projectRevision) return;
         window.alert(`Failed to import shapefile: ${err.message}`);
       }
     },
     async loadGeoPdf(file) {
+      const revision = projectRevision;
       commit({
         geopdfImport: {
           loading: true,
@@ -204,6 +215,7 @@ function paint() {
       });
       try {
         const parsed = await parseGeoPdf(file);
+        if (revision !== projectRevision) return;
         const overlay = {
           id: `gp-${Date.now()}`,
           name: file.name,
@@ -232,6 +244,7 @@ function paint() {
         const overlayGeometry = geoPdfOverlayToFeatureCollection(overlay);
         if (overlayGeometry.features.length) mapApi?.flyToLayer(overlayGeometry);
       } catch (err) {
+        if (revision !== projectRevision) return;
         commit({
           geopdfImport: {
             loading: false,
@@ -282,6 +295,7 @@ function paint() {
       commit({ baseMapMode });
     },
     async calculate() {
+      const revision = projectRevision;
       mapApi?.blur();
       if (!state.skylines.length) {
         window.alert("Draw or load at least one skyline first.");
@@ -305,6 +319,7 @@ function paint() {
         const calculationState = withSequentialSkylineIds(state);
         const results = await calculateProject(calculationState.skylines, calculationState.assumptions, provider);
         await minimumStatusTime;
+        if (revision !== projectRevision) return;
         runtime.isCalculating = false;
         commit({
           results,
@@ -315,6 +330,7 @@ function paint() {
         });
       } catch (error) {
         await minimumStatusTime;
+        if (revision !== projectRevision) return;
         runtime.isCalculating = false;
         commit({
           results: [],
@@ -472,23 +488,25 @@ function paint() {
       URL.revokeObjectURL(url);
     },
     reset() {
+      if (!window.confirm("Reset the project? This clears all geometry, results, assumptions, imported maps and uploads, and the project name, then restores the default map view.")) return;
+
       mapApi?.blur();
-      if (window.confirm("Reset the project? This clears all geometry, corridors, results, assumptions, imported layers, and the project name.")) {
-        clearState();
-        state = createInitialState();
-        geotiffTerrainProvider.reset();
-        runtime.isCalculating = false;
-        runtime.showAdvancedTools = false;
-        stopLocationTracking({
-          clearLocation: true,
-          status: geolocationSupported()
-            ? "Location off."
-            : "Location is unavailable on this device/browser."
-        });
-        root.querySelectorAll("input[type='file']").forEach((input) => { input.value = ""; });
-        mapApi?.resetProject?.(buildViewState());
-        paint();
-      }
+      projectRevision += 1;
+      runtime.isCalculating = false;
+      runtime.showAdvancedTools = false;
+      stopLocationTracking({
+        clearLocation: true,
+        status: geolocationSupported()
+          ? "Location off."
+          : "Location is unavailable on this device/browser."
+      });
+      geotiffTerrainProvider.reset();
+      state = createInitialState();
+      root.querySelectorAll("input[type='file']").forEach((input) => { input.value = ""; });
+      root.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+      clearState();
+      mapApi?.resetProject?.(buildViewState());
+      paint();
     },
     toggleAdvancedTools() {
       runtime.showAdvancedTools = !runtime.showAdvancedTools;
@@ -547,8 +565,10 @@ function setLocationTracking(enabled) {
     runtime.locationStatus = "Finding your location...";
     runtime.firstFixCentered = false;
     runtime.stopLocationWatch?.();
+    const revision = projectRevision;
     runtime.stopLocationWatch = startLocationWatch({
       onPosition(position) {
+        if (revision !== projectRevision) return;
         runtime.locationTracking = true;
         runtime.locationErrorKind = "";
         runtime.userLocation = position.lngLat;
@@ -564,6 +584,7 @@ function setLocationTracking(enabled) {
         paint();
       },
       onError(error) {
+        if (revision !== projectRevision) return;
         runtime.locationErrorKind = error.kind;
         runtime.locationStatus = error.message;
         if (error.kind === "permission-denied" || error.kind === "unsupported") {

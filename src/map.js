@@ -2,6 +2,12 @@ import mapboxgl from "mapbox-gl";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+import {
+  baseMapLayerOpacity,
+  baseMapStyleFor,
+  DEFAULT_BASE_MAP_MODE,
+  normalizeBaseMapMode
+} from "./basemap.js";
 import { distance } from "./clearance.js";
 import { formatArea, polygonAreaSquareMetres, polygonCentroid } from "./geometry.js";
 
@@ -34,13 +40,6 @@ const LAYER_IDS = {
   linzParcelsLabel: "linz-parcels-label"
 };
 const TERRAIN_SOURCE_ID = "mapbox-terrain-dem";
-const STYLES = {
-  outdoors: "mapbox://styles/mapbox/outdoors-v12",
-  "linz-hillshade": "mapbox://styles/mapbox/light-v11",
-  "google-satellite": "mapbox://styles/mapbox/empty-v9",
-  "sentinel-2": "mapbox://styles/mapbox/empty-v9"
-};
-
 export function createMap(container, state, onGeometryChange) {
   const token = import.meta.env.VITE_MAPBOX_TOKEN;
   const linzApiKey = import.meta.env.VITE_LINZ_API_KEY;
@@ -49,8 +48,11 @@ export function createMap(container, state, onGeometryChange) {
   if (!token) return createFallbackMap(container, state, onGeometryChange);
 
   let currentState = state;
-  let currentBaseStyle = STYLES[state.baseMapMode] ?? STYLES["google-satellite"];
+  let currentBaseMode = normalizeBaseMapMode(state.baseMapMode);
+  let currentBaseStyle = baseMapStyleFor(currentBaseMode);
   let styleLoading = false;
+  let styleRevision = 0;
+  let initializedStyleRevision = -1;
   let pendingDrawMode = null;
   mapboxgl.accessToken = token;
   let map;
@@ -294,14 +296,17 @@ export function createMap(container, state, onGeometryChange) {
     }
   }
 
-  function initStyleLayers() {
+  function initStyleLayers(revision = styleRevision) {
+    if (revision !== styleRevision || initializedStyleRevision === revision) return;
+    initializedStyleRevision = revision;
     styleLoading = false;
     userLayerIds.clear(); // style reload wipes all sources
     geoPdfOverlayIds.clear();
-    addBaseMapLayers(map, linzApiKey, sentinelInstanceId, currentState.baseMapMode);
+    addBaseMapLayers(map, linzApiKey, sentinelInstanceId, currentBaseMode);
+    applyBaseMapMode(map, currentBaseMode);
     addTerrainSource(map);
     addParcelLayer(map);
-    restoreDrawFeatures(draw, currentState);
+    replaceDrawFeatures(currentState);
     addProjectLayers(map);
     syncGeoPdfOverlays(currentState);
     renderProjectMap(map, currentState);
@@ -317,7 +322,15 @@ export function createMap(container, state, onGeometryChange) {
     }
   }
 
-  map.on("load", initStyleLayers);
+  function loadBaseStyle(style) {
+    const revision = ++styleRevision;
+    initializedStyleRevision = -1;
+    styleLoading = true;
+    map.setStyle(style);
+    map.once("style.load", () => initStyleLayers(revision));
+  }
+
+  map.on("load", () => initStyleLayers(styleRevision));
   map.on("moveend", () => fetchParcels(map, linzLdsKey));
 
   function bindSkylineHoverEvents() {
@@ -595,9 +608,20 @@ export function createMap(container, state, onGeometryChange) {
 
   let isSnapping = false;
   let isBlurring = false;
+  let suppressGeometryChange = false;
+
+  function replaceDrawFeatures(nextState) {
+    suppressGeometryChange = true;
+    try {
+      restoreDrawFeatures(draw, nextState);
+    } finally {
+      suppressGeometryChange = false;
+    }
+  }
+
   ["draw.create", "draw.update", "draw.delete"].forEach((eventName) => {
     map.on(eventName, (event) => {
-      if (isSnapping || isBlurring) return;
+      if (isSnapping || isBlurring || suppressGeometryChange) return;
       if (eventName !== "draw.delete") {
         isSnapping = true;
         try {
@@ -638,18 +662,19 @@ export function createMap(container, state, onGeometryChange) {
   return {
     render(nextState) {
       currentState = nextState;
-      const newStyle = STYLES[currentState.baseMapMode] ?? STYLES["google-satellite"];
+      currentBaseMode = normalizeBaseMapMode(currentState.baseMapMode);
+      const newStyle = baseMapStyleFor(currentBaseMode);
       if (newStyle !== currentBaseStyle) {
         currentBaseStyle = newStyle;
-        styleLoading = true;
         sentinelLoadingDone = false;
         clearTimeout(sentinelLoadingTimer);
         sentinelLoadingTimer = null;
         const activeMode = draw.getMode();
         if (activeMode.startsWith("draw_")) pendingDrawMode = activeMode;
-        map.setStyle(newStyle);
-        map.once("style.load", initStyleLayers);
+        loadBaseStyle(newStyle);
       } else if (!styleLoading && projectLayersReady()) {
+        applyBaseMapMode(map, currentBaseMode);
+        if (currentBaseMode !== "sentinel-2") hideSentinelOverlay();
         renderProjectMap(map, currentState);
         syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
@@ -658,7 +683,7 @@ export function createMap(container, state, onGeometryChange) {
     syncDraw(nextState) {
       currentState = nextState;
       if (!styleLoading && projectLayersReady()) {
-        restoreDrawFeatures(draw, currentState);
+        replaceDrawFeatures(currentState);
         renderProjectMap(map, currentState);
         syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
@@ -666,14 +691,37 @@ export function createMap(container, state, onGeometryChange) {
     },
     resetProject(nextState) {
       currentState = nextState;
+      currentBaseMode = normalizeBaseMapMode(currentState.baseMapMode);
       fieldModeEditEnabled = false;
       selectedDrawFeatureIds = [];
       activeProfileSkylineId = null;
       pendingDrawMode = null;
       skylinePopup.remove();
       stopPulse();
-      draw.deleteAll();
+      hideSentinelOverlay();
+      map.stop();
+      map.jumpTo({
+        center: DEFAULT_MAP_VIEW.center,
+        zoom: DEFAULT_MAP_VIEW.zoom,
+        bearing: 0,
+        pitch: 0
+      });
+      suppressGeometryChange = true;
+      try {
+        if (draw.getMode() !== "simple_select") draw.changeMode("simple_select");
+        draw.deleteAll();
+      } finally {
+        suppressGeometryChange = false;
+      }
+
+      const resetStyle = baseMapStyleFor(currentBaseMode);
+      if (resetStyle !== currentBaseStyle) {
+        currentBaseStyle = resetStyle;
+        loadBaseStyle(resetStyle);
+        return;
+      }
       if (!styleLoading && projectLayersReady()) {
+        applyBaseMapMode(map, currentBaseMode);
         renderProjectMap(map, currentState);
         syncGeoPdfOverlays(currentState);
         syncUserLayers(currentState);
@@ -704,7 +752,7 @@ export function createMap(container, state, onGeometryChange) {
     },
     edit() {
       fieldModeEditEnabled = true;
-      restoreDrawFeatures(draw, currentState);
+      replaceDrawFeatures(currentState);
     },
     startDrawSkid() {
       fieldModeEditEnabled = true;
@@ -844,7 +892,7 @@ function waitForMapRender(map) {
   });
 }
 
-function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "google-satellite") {
+function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = DEFAULT_BASE_MAP_MODE) {
   // Google satellite (hybrid: imagery + road labels baked in)
   if (!map.getSource(SOURCE_IDS.googleSatellite)) {
     map.addSource(SOURCE_IDS.googleSatellite, {
@@ -864,7 +912,7 @@ function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "google-sa
       type: "raster",
       source: SOURCE_IDS.googleSatellite,
       paint: {
-        "raster-opacity": mode === "google-satellite" ? 1.0 : 0,
+        "raster-opacity": baseMapLayerOpacity(mode, "google-satellite"),
         "raster-opacity-transition": { duration: 250 }
       }
     });
@@ -888,7 +936,7 @@ function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "google-sa
       type: "raster",
       source: SOURCE_IDS.sentinel2,
       paint: {
-        "raster-opacity": mode === "sentinel-2" ? 1.0 : 0,
+        "raster-opacity": baseMapLayerOpacity(mode, "sentinel-2"),
         "raster-opacity-transition": { duration: 250 }
       }
     });
@@ -913,11 +961,24 @@ function addBaseMapLayers(map, linzApiKey, sentinelInstanceId, mode = "google-sa
       type: "raster",
       source: SOURCE_IDS.linzHillshade,
       paint: {
-        "raster-opacity": mode === "linz-hillshade" ? 1.0 : 0,
+        "raster-opacity": baseMapLayerOpacity(mode, "linz-hillshade"),
         "raster-opacity-transition": { duration: 250 }
       }
     }, firstSymbolId);
   }
+}
+
+function applyBaseMapMode(map, mode) {
+  const activeMode = normalizeBaseMapMode(mode);
+  [
+    [LAYER_IDS.googleSatellite, "google-satellite"],
+    [LAYER_IDS.sentinel2, "sentinel-2"],
+    [LAYER_IDS.linzHillshade, "linz-hillshade"]
+  ].forEach(([layerId, layerMode]) => {
+    if (map.getLayer(layerId)) {
+      map.setPaintProperty(layerId, "raster-opacity", baseMapLayerOpacity(activeMode, layerMode));
+    }
+  });
 }
 
 
@@ -1386,6 +1447,9 @@ function createFallbackMap(
       state = nextState;
     },
     syncDraw(nextState) {
+      state = nextState;
+    },
+    resetProject(nextState) {
       state = nextState;
     },
     centerOnLocation() {},

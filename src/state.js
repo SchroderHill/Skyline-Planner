@@ -1,4 +1,5 @@
 import { DEFAULT_ASSUMPTIONS } from "./clearance.js";
+import { DEFAULT_BASE_MAP_MODE, normalizeBaseMapMode } from "./basemap.js";
 import { TERRAIN_MODES, terrainSourceNote } from "./terrain.js";
 
 const STORAGE_KEY = "schroder-hill-cable-project";
@@ -12,12 +13,14 @@ export function createInitialState() {
     skylines: [],
     assumptions: { ...DEFAULT_ASSUMPTIONS },
     assumptionsTouched: false,
-    baseMapMode: "google-satellite",
+    baseMapMode: DEFAULT_BASE_MAP_MODE,
     terrainMode: TERRAIN_MODES.MAPBOX,
     terrainStatus: {
       source: terrainSourceNote(TERRAIN_MODES.MAPBOX),
       warning: ""
     },
+    geotiffMeta: null,
+    geotiffError: null,
     results: [],
     userLayers: [],
     geopdfOverlays: [],
@@ -39,6 +42,7 @@ export function loadState() {
       ...saved,
       skid: skids.at(-1) ?? null,
       skids,
+      baseMapMode: normalizeBaseMapMode(saved?.baseMapMode),
       projectName: saved?.projectName === "Schroder Hill screening" ? "" : saved?.projectName ?? ""
     };
   } catch {
