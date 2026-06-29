@@ -27,11 +27,21 @@ export class MapboxTerrainProvider {
   }
 
   async sampleLine(coordinates) {
-    const elevations = coordinates.map((coordinate) => this.sampleElevation(coordinate));
-    if (elevations.some((elevation) => !Number.isFinite(elevation))) {
-      throw new Error("Mapbox terrain could not return elevation for one or more sample points.");
+    // queryTerrainElevation is a synchronous GPU-cache lookup. DEM tiles load
+    // asynchronously, so a null result means the tile hasn't arrived yet — not
+    // that terrain is unavailable. Retry with short pauses to let tiles load
+    // before giving up. Handles the common "click Calculate just after panning
+    // to a new area" case where tiles are in-flight but not yet cached.
+    const RETRY_DELAYS_MS = [400, 800, 1600];
+    let elevations;
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+      elevations = coordinates.map((coordinate) => this.sampleElevation(coordinate));
+      if (elevations.every((elevation) => Number.isFinite(elevation))) return elevations;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      }
     }
-    return elevations;
+    throw new Error("Mapbox terrain could not return elevation for one or more sample points.");
   }
 }
 
