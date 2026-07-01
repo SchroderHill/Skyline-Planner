@@ -824,26 +824,13 @@ export function createMap(container, state, onGeometryChange) {
         }
       }
     },
-    async captureImage(projectState = currentState) {
-      const previousCamera = snapshotCamera(map);
-      const bounds = projectBounds(projectState);
-      if (bounds) {
-        map.fitBounds(bounds, {
-          padding: { top: 90, right: 70, bottom: 70, left: 70 },
-          duration: 0,
-          maxZoom: 16
-        });
-      }
+    async captureImage() {
+      map.resize();
       await waitForMapRender(map);
       try {
         return map.getCanvas().toDataURL("image/png");
       } catch {
         return null;
-      } finally {
-        if (previousCamera) {
-          map.jumpTo(previousCamera);
-          await waitForMapRender(map);
-        }
       }
     }
   };
@@ -851,37 +838,6 @@ export function createMap(container, state, onGeometryChange) {
   function projectLayersReady() {
     return map.isStyleLoaded() && Boolean(map.getSource(SOURCE_IDS.results));
   }
-}
-
-function snapshotCamera(map) {
-  const center = map.getCenter();
-  return {
-    center: [center.lng, center.lat],
-    zoom: map.getZoom(),
-    bearing: map.getBearing(),
-    pitch: map.getPitch()
-  };
-}
-
-function projectBounds(state) {
-  const coordinates = [
-    ...skidPoints(state),
-    ...flattenCoordinates(state.settingPolygon),
-    ...(state.skylines ?? []).flatMap((skyline) => skyline.coordinates ?? []),
-    ...(state.geopdfOverlays ?? []).flatMap((overlay) => overlay.coordinates ?? []),
-    ...(state.results ?? []).flatMap((result) => (result.samples ?? []).map((sample) => sample.coordinate).filter(Boolean))
-  ].filter(isLngLat);
-
-  if (!coordinates.length) return null;
-  const bounds = new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]);
-  coordinates.slice(1).forEach((coordinate) => bounds.extend(coordinate));
-  return bounds;
-}
-
-function flattenCoordinates(coordinates) {
-  if (!Array.isArray(coordinates)) return [];
-  if (isLngLat(coordinates)) return [coordinates];
-  return coordinates.flatMap(flattenCoordinates);
 }
 
 function isLngLat(coordinate) {

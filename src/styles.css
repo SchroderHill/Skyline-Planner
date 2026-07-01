@@ -1425,8 +1425,7 @@ dialog::backdrop {
 
 .report-header {
   display: grid;
-  grid-template-columns: 190px 1fr;
-  gap: 28px;
+  grid-template-columns: 1fr;
   align-items: center;
   padding-bottom: 16px;
   border-bottom: 3px solid #172033;
@@ -1434,11 +1433,6 @@ dialog::backdrop {
 
 .report-header > div {
   text-align: center;
-}
-
-.report-logo {
-  width: 190px;
-  max-width: 100%;
 }
 
 .report-page h1 {

@@ -31,7 +31,6 @@ function reportMarkup(state, options = {}) {
         </div>
 
         <header class="report-header">
-          <img class="report-logo" src="/SchroderHill_WBG.png" alt="Schroder Hill" />
           <div>
               <h1>Skyline Calculator</h1>
             <p>by Schroder Hill Limited</p>
