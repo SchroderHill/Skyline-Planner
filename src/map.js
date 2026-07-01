@@ -10,6 +10,7 @@ import {
 } from "./basemap.js";
 import { distance } from "./clearance.js";
 import { formatArea, polygonAreaSquareMetres, polygonCentroid } from "./geometry.js";
+import { reanchorSkylinesToMovedSkids } from "./skid-anchor.js";
 
 export const DEFAULT_MAP_VIEW = {
   center: [173.52, -41.25],
@@ -625,6 +626,7 @@ export function createMap(container, state, onGeometryChange) {
       if (eventName !== "draw.delete") {
         isSnapping = true;
         try {
+          if (eventName === "draw.update") reanchorLinesToMovedSkids(draw, currentState, event.features);
           snapLinesToSkid(draw, event.features);
         } finally {
           isSnapping = false;
@@ -1011,6 +1013,20 @@ function readDrawFeatures(draw) {
       coordinates: feature.geometry.coordinates
     }))
   };
+}
+
+function reanchorLinesToMovedSkids(draw, project, movedFeatures) {
+  const collection = draw.getAll();
+  const result = reanchorSkylinesToMovedSkids(collection.features, project, movedFeatures?.length ? movedFeatures : collection.features);
+  if (!result.changed && movedFeatures?.length) {
+    const fallback = reanchorSkylinesToMovedSkids(collection.features, project, collection.features);
+    if (!fallback.changed) return false;
+    draw.set({ type: "FeatureCollection", features: fallback.features });
+    return true;
+  }
+  if (!result.changed) return false;
+  draw.set({ type: "FeatureCollection", features: result.features });
+  return true;
 }
 
 function snapLinesToSkid(draw, changedFeatures = null) {
