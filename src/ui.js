@@ -398,7 +398,7 @@ function assumptionChangedFromDefault(value, baseline) {
   return String(value ?? "") !== String(baseline ?? "");
 }
 
-function workflowModel(state) {
+export function workflowModel(state) {
   const skidCount = skidPoints(state).length;
   const hasGeoPdf = (state.geopdfOverlays ?? []).length > 0;
   const hasSkid = skidCount > 0;
@@ -407,13 +407,14 @@ function workflowModel(state) {
   const hasResults = (state.results ?? []).length > 0;
   const isCalculating = Boolean(state.isCalculating);
   const calculatingLabel = state.terrainMode === "mapbox" ? "Loading terrain..." : "Calculating...";
-  const canCalculate = hasGeoPdf && hasCorridors && hasSavedAssumptions && !isCalculating;
+  const canCalculate = hasCorridors && hasSavedAssumptions && !isCalculating;
 
   const steps = [
     {
       label: "Add GeoPDF",
-      detail: hasGeoPdf ? `${state.geopdfOverlays.length} GeoPDF overlay${state.geopdfOverlays.length === 1 ? " is" : "s are"} loaded.` : "Import a georeferenced PDF map.",
+      detail: hasGeoPdf ? `${state.geopdfOverlays.length} GeoPDF overlay${state.geopdfOverlays.length === 1 ? " is" : "s are"} loaded.` : "Optional: import a georeferenced PDF map.",
       complete: hasGeoPdf,
+      optional: true,
       enabled: true,
       action: "import-geopdf",
       actionLabel: hasGeoPdf ? "Add another GeoPDF" : "Add GeoPDF"
@@ -422,7 +423,7 @@ function workflowModel(state) {
       label: "Place skid / landing",
       detail: hasSkid ? `${skidCount} landing point${skidCount === 1 ? " is" : "s are"} set on map.` : "Start by placing the skid point.",
       complete: hasSkid,
-      enabled: hasGeoPdf,
+      enabled: true,
       action: "draw-skid",
       actionLabel: hasSkid ? "Add another skid" : "Start"
     },
@@ -452,14 +453,13 @@ function workflowModel(state) {
     }
   ];
 
-  const currentIndex = steps.findIndex((step) => !step.complete);
+  const currentIndex = steps.findIndex((step) => !step.complete && !step.optional);
   if (currentIndex >= 0) steps[currentIndex].current = true;
 
   let hint = "Use the steps in order to complete a full planning run.";
   if (isCalculating) hint = state.terrainMode === "mapbox"
     ? "Loading and sampling Mapbox terrain..."
     : "Calculating skyline clearance...";
-  else if (!hasGeoPdf) hint = "Step 1: Add a GeoPDF map overlay.";
   else if (!hasSkid) hint = "Step 2: Place the skid / landing point on the map.";
   else if (!hasCorridors) hint = "Step 3: Draw one or more skyline corridors from skid to tailhold.";
   else if (!hasSavedAssumptions) hint = "Step 4: Confirm the default assumptions or set project-specific values.";
