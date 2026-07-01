@@ -297,6 +297,26 @@ export function createMap(container, state, onGeometryChange) {
     }
   }
 
+  function clearVisibleProjectData() {
+    const empty = emptyCollection();
+    [
+      SOURCE_IDS.geotiffFootprint,
+      SOURCE_IDS.setting,
+      SOURCE_IDS.skid,
+      SOURCE_IDS.userLocation,
+      SOURCE_IDS.corridors,
+      SOURCE_IDS.results,
+      SOURCE_IDS.labels,
+      SOURCE_IDS.vertexPulse
+    ].forEach((sourceId) => {
+      const source = map.getSource(sourceId);
+      if (source && typeof source.setData === "function") source.setData(empty);
+    });
+
+    for (const id of [...userLayerIds]) removeUserLayerFromMap(id);
+    for (const id of [...geoPdfOverlayIds]) removeGeoPdfOverlayFromMap(id);
+  }
+
   function initStyleLayers(revision = styleRevision) {
     if (revision !== styleRevision || initializedStyleRevision === revision) return;
     initializedStyleRevision = revision;
@@ -708,6 +728,7 @@ export function createMap(container, state, onGeometryChange) {
         bearing: 0,
         pitch: 0
       });
+      clearVisibleProjectData();
       suppressGeometryChange = true;
       try {
         if (draw.getMode() !== "simple_select") draw.changeMode("simple_select");
