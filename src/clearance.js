@@ -1,9 +1,9 @@
 export const DEFAULT_ASSUMPTIONS = {
   haulerName: "",
-  landingTowerPreset: "50",
-  landingTowerHeight: 15.24,
+  landingTowerPreset: "90",
+  landingTowerHeight: 27.432,
   tailholdHeight: 2,
-  minimumClearance: 3,
+  minimumClearance: 2,
   manualSagAllowance: 0,
   sampleSpacing: 25,
   deflectionPercent: 6
