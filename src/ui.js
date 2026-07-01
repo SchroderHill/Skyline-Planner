@@ -6,7 +6,7 @@ export function renderApp(root, state, handlers) {
     root.innerHTML = `
       <header class="topbar">
         <div>
-          <h1>Skyline Planning Report</h1>
+            <h1>Skyline Calculator</h1>
           <p>by Schroder Hill Limited</p>
         </div>
         <label class="project-name-field">
