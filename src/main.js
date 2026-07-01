@@ -358,8 +358,8 @@ function paint() {
 
       const SEGMENT_COLORS = { green: "#178f48", red: "#d71920", neutral: "#2d3748" };
       const STATUS_LABELS  = {
-        green:   "Lift",
-        red:     "No lift",
+        green:   "Adequate clearance",
+        red:     "Below minimum / no lift",
         neutral: "Not assessed"
       };
 
@@ -405,14 +405,11 @@ function paint() {
       (state.skylines ?? []).forEach((skyline, i) => {
         const id     = skyline.id ?? String(i + 1);
         const result = resultById[id];
-        const status = result ? (result.pass ? "green" : "red") : "neutral";
         features.push({
           type: "Feature",
           properties: {
             layer:              "skyline",
             skyline_id:         id,
-            status,
-            status_label:       STATUS_LABELS[status],
             ...(result
               ? {
                   length_m:         Math.round(result.length),

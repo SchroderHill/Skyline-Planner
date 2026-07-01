@@ -169,7 +169,7 @@ h1 {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(220px, 24vw, 260px);
+  grid-template-columns: minmax(0, 1fr) clamp(270px, 30vw, 320px);
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
@@ -177,7 +177,7 @@ h1 {
 }
 
 :root.is-embedded .layout {
-  grid-template-columns: minmax(0, 1fr) clamp(205px, 23vw, 245px);
+  grid-template-columns: minmax(0, 1fr) clamp(235px, 27vw, 285px);
 }
 
 .map-pane {
@@ -194,20 +194,20 @@ h1 {
 .basemap-picker {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 8px;
+  gap: 6px;
+  padding: 12px;
 }
 
 .basemap-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 5px 4px 4px;
+  gap: 6px;
+  padding: 5px 8px 5px 5px;
   background: #f4f7f2;
   border: 2px solid transparent;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: #172033;
   min-height: unset;
@@ -226,8 +226,8 @@ h1 {
 
 .basemap-thumb {
   display: inline-block;
-  width: 26px;
-  height: 18px;
+  width: 36px;
+  height: 26px;
   border-radius: 4px;
   flex-shrink: 0;
   background-size: cover;
@@ -483,7 +483,7 @@ h1 {
 }
 
 .panel {
-  padding: 8px;
+  padding: 12px;
   background:
     linear-gradient(180deg, rgba(250, 252, 248, 0.98) 0%, rgba(243, 248, 241, 0.98) 100%);
   border-left: 1px solid #d7ded2;
@@ -493,12 +493,12 @@ h1 {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
 
 :root.is-embedded .panel {
-  padding: 7px;
-  gap: 6px;
+  padding: 10px;
+  gap: 8px;
 }
 
 .panel > * {
@@ -507,9 +507,9 @@ h1 {
 
 .workflow {
   margin: 0;
-  padding: 8px;
+  padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
 }
 
@@ -517,15 +517,15 @@ h1 {
   position: relative;
   overflow: visible;
   isolation: isolate;
-  box-shadow: 0 6px 14px rgba(20, 32, 45, 0.06);
+  box-shadow: 0 10px 24px rgba(20, 32, 45, 0.07);
 }
 
 .workflow.workflow--guided::after {
   content: "";
   position: absolute;
-  inset: auto -12px -18px auto;
-  width: 58px;
-  height: 58px;
+  inset: auto -18px -24px auto;
+  width: 92px;
+  height: 92px;
   background: radial-gradient(circle at center, rgba(30, 143, 75, 0.22), transparent 70%);
   pointer-events: none;
   z-index: 0;
@@ -538,13 +538,13 @@ h1 {
 
 .workflow-head {
   display: grid;
-  gap: 5px;
-  margin-bottom: 7px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .workflow-head h2,
 .panel h2 {
-  font-size: 11px;
+  font-size: 14px;
   letter-spacing: 0;
   text-transform: uppercase;
   color: #34403a;
@@ -553,23 +553,23 @@ h1 {
 
 .workflow-hint {
   margin: 0;
-  padding: 6px 7px;
+  padding: 8px 10px;
   border: 1px solid #d6e5d8;
   border-radius: 8px;
   background: #eef7ef;
   color: #2e4a3a;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
 }
 
 .workflow-primary-action {
   width: 100%;
-  min-height: 30px;
+  min-height: 36px;
   border-color: #1e8f4b;
   background: #1e8f4b;
   color: #ffffff;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.01em;
 }
@@ -629,7 +629,7 @@ h1 {
 
 .workflow-steps {
   display: grid;
-  gap: 6px;
+  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -637,11 +637,11 @@ h1 {
 
 .workflow-step {
   display: grid;
-  grid-template-columns: 22px 1fr;
-  gap: 7px;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
   align-items: start;
-  padding: 7px;
-  border-radius: 8px;
+  padding: 10px;
+  border-radius: 10px;
   border: 1px solid #dae4d8;
   background: #ffffff;
 }
@@ -649,12 +649,12 @@ h1 {
 .workflow-step__marker {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border: 1px solid #b6c2ae;
   border-radius: 50%;
   color: #1c7f46;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   background: #ffffff;
 }
@@ -662,31 +662,31 @@ h1 {
 .workflow-step__body h3 {
   margin: 0;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .workflow-step__body p {
-  margin: 2px 0 6px;
-  font-size: 10px;
+  margin: 3px 0 8px;
+  font-size: 12px;
   color: #536052;
   line-height: 1.34;
 }
 
 .workflow-step__action {
-  min-height: 28px;
-  border-radius: 6px;
+  min-height: 34px;
+  border-radius: 8px;
   border-color: #acc4ae;
   background: #f2f8f2;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 0 7px;
+  padding: 0 10px;
 }
 
 .workflow-geopdf-controls {
   display: grid;
-  gap: 4px;
-  margin-top: 5px;
-  padding-top: 5px;
+  gap: 5px;
+  margin-top: 7px;
+  padding-top: 6px;
   border-top: 1px solid #edf2ea;
   font-size: 10px;
 }
@@ -711,7 +711,7 @@ h1 {
 .workflow-geopdf-name {
   overflow: hidden;
   color: #435047;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -719,17 +719,17 @@ h1 {
 
 .workflow-geopdf-actions {
   display: flex;
-  gap: 2px;
+  gap: 3px;
 }
 
 .workflow-geopdf-item button {
-  min-height: 19px;
-  padding: 0 3px;
+  min-height: 22px;
+  padding: 0 4px;
   border-color: #d4dfd0;
   border-radius: 5px;
   background: #fbfdf9;
   color: #405044;
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 800;
 }
 
@@ -740,13 +740,13 @@ h1 {
 .workflow-geopdf-opacity {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: auto minmax(46px, 0.55fr) auto;
+  grid-template-columns: auto minmax(58px, 0.55fr) auto;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   justify-self: end;
-  width: min(100%, 118px);
+  width: min(100%, 138px);
   color: #697568;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
 }
 
@@ -756,12 +756,12 @@ h1 {
 
 .workflow-geopdf-opacity strong {
   color: #34403a;
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .workflow-step.current {
   border-color: #91bfa0;
-  box-shadow: 0 4px 9px rgba(25, 106, 56, 0.1);
+  box-shadow: 0 6px 14px rgba(25, 106, 56, 0.12);
 }
 
 .workflow-step.current .workflow-step__action {
@@ -799,7 +799,7 @@ h1 {
   margin: 0;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 10px;
   background: var(--surface-card);
   overflow: hidden;
 }
@@ -808,16 +808,16 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
-  min-height: 32px;
+  min-height: 42px;
   border: 0;
   border-radius: 0;
-  padding: 0 8px;
+  padding: 0 12px;
   background: transparent;
   color: #34403a;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0;
   list-style: none;
@@ -832,8 +832,8 @@ h1 {
 
 .collapsible-section__summary::after {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-right: 2px solid #58705b;
   border-bottom: 2px solid #58705b;
   transform: rotate(45deg);
@@ -859,48 +859,40 @@ h1 {
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  gap: 8px;
   margin: 0;
-  padding: 8px;
-}
-
-.actions button {
-  min-height: 30px;
-  border-radius: 6px;
-  font-size: 10px;
-  line-height: 1.15;
-  padding: 3px 5px;
+  padding: 12px;
 }
 
 .terrain-panel {
-  margin-bottom: 0;
-  padding: 8px;
+  margin-bottom: 18px;
+  padding: 12px;
   border: 1px solid #d7ded2;
-  border-radius: 7px;
+  border-radius: 6px;
   background: #ffffff;
 }
 
 .terrain-panel label {
   display: grid;
-  gap: 4px;
-  font-size: 10px;
+  gap: 6px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .terrain-panel select {
-  min-height: 30px;
+  min-height: 38px;
   border: 1px solid #c7d0c0;
   border-radius: 6px;
-  padding: 5px 7px;
+  padding: 8px 10px;
   background: #ffffff;
   color: #172033;
   font: inherit;
 }
 
 .terrain-note {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
   color: #536052;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -1120,67 +1112,67 @@ dialog::backdrop {
 /* ── User Data panel ───────────────────────────────────────────────────────── */
 
 .user-data-panel {
-  margin-bottom: 0;
-  padding: 8px;
+  margin-bottom: 18px;
+  padding: 12px;
   border: 1px solid #d7ded2;
-  border-radius: 7px;
+  border-radius: 6px;
   background: #ffffff;
 }
 
 .user-data-imports {
   display: grid;
-  gap: 5px;
-  margin-bottom: 6px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .user-data-file-label {
   display: grid;
-  gap: 3px;
-  font-size: 10px;
+  gap: 5px;
+  font-size: 12px;
   font-weight: 700;
   color: #34403a;
 }
 
 .user-data-file-label input[type="file"] {
   font: inherit;
-  font-size: 10px;
+  font-size: 12px;
   color: #172033;
   cursor: pointer;
 }
 
 .user-layers-list {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .geopdf-status {
-  margin-top: 5px;
+  margin-top: 8px;
 }
 
 .geopdf-message {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .geopdf-error {
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   background: #fff4f4;
   border: 1px solid #d69b9b;
   border-radius: 5px;
   color: #8d1d1d;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
 }
 
 .user-layers-empty {
-  font-size: 10px;
+  font-size: 12px;
   margin: 0;
 }
 
 .geopdf-layer-item {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .geopdf-layer-swatch {
@@ -1191,9 +1183,9 @@ dialog::backdrop {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 5px;
-  padding: 0 4px;
-  font-size: 9px;
+  gap: 8px;
+  padding: 0 6px;
+  font-size: 11px;
   color: #536052;
 }
 
@@ -1203,13 +1195,13 @@ dialog::backdrop {
 
 .geopdf-opacity-row strong {
   color: #172033;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .geopdf-meta {
   margin: 0;
-  padding: 0 4px;
-  font-size: 9px;
+  padding: 0 6px;
+  font-size: 11px;
   color: #657060;
 }
 
@@ -1220,20 +1212,20 @@ dialog::backdrop {
 
 .user-layer-item {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto auto auto;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto auto;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
+  gap: 7px;
+  padding: 5px 6px;
   background: #f4f7f2;
   border: 1px solid #d7ded2;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .user-layer-swatch {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 3px;
   flex-shrink: 0;
 }
@@ -1248,8 +1240,8 @@ dialog::backdrop {
 
 .user-layer-btn {
   min-height: unset;
-  padding: 2px 5px;
-  font-size: 9px;
+  padding: 3px 7px;
+  font-size: 11px;
   line-height: 1.2;
   font-weight: 700;
   border-radius: 4px;
