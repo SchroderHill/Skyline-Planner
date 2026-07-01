@@ -1,4 +1,3 @@
-import { formatArea, polygonAreaSquareMetres } from "./geometry.js";
 import { DEFAULT_ASSUMPTIONS } from "./clearance.js";
 
 export function renderApp(root, state, handlers) {
@@ -109,15 +108,6 @@ export function renderApp(root, state, handlers) {
             <div id="userLayersList" class="user-layers-list"></div>
             <div id="geoPdfStatus" class="geopdf-status"></div>
             <div id="geoPdfOverlaysList" class="user-layers-list"></div>
-          </section>
-          <section>
-            <h2>Inputs</h2>
-            <dl>
-              <dt>Skid</dt><dd id="skidStatus">Not drawn</dd>
-              <dt>Setting</dt><dd id="settingStatus">Not drawn</dd>
-              <dt>Setting area</dt><dd id="settingArea">Not drawn</dd>
-              <dt>Skylines</dt><dd id="skylineCount">0</dd>
-            </dl>
           </section>
         </aside>
       </main>
@@ -316,10 +306,6 @@ function updateApp(root, state) {
   if (isGeoTiff) {
     root.querySelector("#geotiffMeta").innerHTML = renderGeoTiffMeta(state.geotiffMeta, state.geotiffError);
   }
-  root.querySelector("#skidStatus").textContent = skidCount ? `${skidCount} point${skidCount === 1 ? "" : "s"}` : "Not drawn";
-  root.querySelector("#settingStatus").textContent = state.settingPolygon ? "1 polygon" : "Not drawn";
-  root.querySelector("#settingArea").textContent = formatArea(polygonAreaSquareMetres(state.settingPolygon));
-  root.querySelector("#skylineCount").textContent = String(state.skylines.length);
   root.querySelector("#userLayersList").innerHTML = renderUserLayers(state.userLayers ?? []);
   root.querySelector("#geoPdfStatus").innerHTML = renderGeoPdfStatus(state.geopdfImport);
   root.querySelector("#geoPdfOverlaysList").innerHTML = renderGeoPdfOverlays(state.geopdfOverlays ?? []);
