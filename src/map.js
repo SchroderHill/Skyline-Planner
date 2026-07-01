@@ -1542,22 +1542,22 @@ function skylineProfilePopupHtml(state, skylineId) {
   const samples = result.samples ?? [];
   const landing = samples[0] ?? {};
   const tailhold = samples.at(-1) ?? {};
-  const minSample = samples.reduce(
-    (min, sample) => (sample.clearance < min.clearance ? sample : min),
-    samples[0] ?? { clearance: Number.POSITIVE_INFINITY, distanceAlongLine: 0 }
-  );
+  const assumptions = state.assumptions ?? {};
+  const haulerName = String(assumptions.haulerName ?? "").trim() || "Not set";
+  const towerHeight = formatTowerHeight(assumptions);
 
   return `
     <section class="skyline-popup-card">
       <h4>Skyline ${escapeHtml(result.id ?? skylineId)} profile</h4>
       ${renderSkylineProfileMiniChart(result)}
-      <dl>
-        <dt>Length</dt><dd>${result.length.toFixed(0)} m</dd>
-        <dt>Deflection</dt><dd>${Number(result.deflectionPercent || 0).toFixed(0)}%</dd>
-        <dt>Min clearance</dt><dd>${result.minClearance.toFixed(1)} m</dd>
-        <dt>Min at</dt><dd>${Number(minSample.distanceAlongLine || 0).toFixed(0)} m</dd>
-        <dt>Clearance</dt><dd>${result.percentGreen.toFixed(0)}%</dd>
-        <dt>No lift</dt><dd>${result.percentRed.toFixed(0)}%</dd>
+      <dl class="skyline-popup-stats">
+        <div><dt>Length</dt><dd>${result.length.toFixed(0)} m</dd></div>
+        <div><dt>Deflection</dt><dd>${Number(result.deflectionPercent || 0).toFixed(0)}%</dd></div>
+        <div><dt>Min clearance</dt><dd>${result.minClearance.toFixed(1)} m</dd></div>
+        <div><dt>Lift</dt><dd>${result.percentGreen.toFixed(0)}%</dd></div>
+        <div><dt>No lift</dt><dd>${result.percentRed.toFixed(0)}%</dd></div>
+        <div><dt>Tower</dt><dd>${escapeHtml(towerHeight)}</dd></div>
+        <div><dt>Hauler</dt><dd>${escapeHtml(haulerName)}</dd></div>
       </dl>
       <p class="skyline-popup-note">Landing ${formatElevation(landing.groundElevation)} m, tailhold ${formatElevation(tailhold.groundElevation)} m.</p>
     </section>
@@ -1569,8 +1569,8 @@ function renderSkylineProfileMiniChart(result) {
   if (samples.length < 2) return "";
 
   const width = 240;
-  const height = 94;
-  const margin = { top: 7, right: 7, bottom: 8, left: 7 };
+  const height = 102;
+  const margin = { top: 7, right: 7, bottom: 7, left: 7 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
@@ -1626,6 +1626,15 @@ function sampleDistance(sample) {
 function skylineHeight(sample) {
   const value = Number(sample?.skylineElevation ?? sample?.cableElevation);
   return Number.isFinite(value) ? value : NaN;
+}
+
+function formatTowerHeight(assumptions) {
+  if (assumptions?.landingTowerPreset && assumptions.landingTowerPreset !== "custom") {
+    return `${assumptions.landingTowerPreset} ft`;
+  }
+  const metres = Number(assumptions?.landingTowerHeight);
+  if (!Number.isFinite(metres)) return "Not set";
+  return `${metres.toFixed(1)} m`;
 }
 
 function skylineLength(coordinates) {

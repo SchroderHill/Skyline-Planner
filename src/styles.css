@@ -341,11 +341,11 @@ h1 {
 }
 
 .skyline-profile-popup .mapboxgl-popup-content {
-  min-width: 248px;
-  padding: 10px 12px;
+  min-width: 205px;
+  padding: 7px 8px;
   border: 1px solid #cbd5c4;
-  border-radius: 8px;
-  box-shadow: 0 10px 26px rgba(23, 32, 51, 0.22);
+  border-radius: 7px;
+  box-shadow: 0 8px 20px rgba(23, 32, 51, 0.2);
 }
 
 .skyline-profile-popup .mapboxgl-popup-tip {
@@ -353,27 +353,43 @@ h1 {
 }
 
 .skyline-popup-card h4 {
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 4px;
+  font-size: 12px;
   line-height: 1.25;
   color: #172033;
 }
 
 .skyline-popup-chart {
-  margin: 0 0 8px;
+  margin: 0 0 5px;
 }
 
 .skyline-popup-chart svg {
   display: block;
   width: 100%;
-  height: 86px;
-  border-radius: 5px;
+  height: 88px;
+  border-radius: 4px;
 }
 
 .skyline-popup-chart figcaption {
-  margin-top: 4px;
-  font-size: 10px;
+  margin-top: 2px;
+  font-size: 9px;
   color: #657060;
+}
+
+.skyline-popup-card .skyline-popup-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 8px;
+  margin: 0;
+  font-size: 9px;
+}
+
+.skyline-popup-card .skyline-popup-stats > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+  align-items: baseline;
 }
 
 .skyline-popup-card dl {
@@ -388,6 +404,16 @@ h1 {
   color: #536052;
 }
 
+.skyline-popup-stats dt {
+  overflow: hidden;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .skyline-popup-card dd {
   margin: 0;
   text-align: right;
@@ -395,10 +421,20 @@ h1 {
   color: #172033;
 }
 
+.skyline-popup-stats dd {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 1.1;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .skyline-popup-note {
-  margin: 8px 0 0;
-  font-size: 11px;
-  line-height: 1.35;
+  margin: 5px 0 0;
+  font-size: 9px;
+  line-height: 1.2;
   color: #657060;
 }
 
@@ -1256,13 +1292,17 @@ dialog::backdrop {
   }
 
   .skyline-profile-popup .mapboxgl-popup-content {
-    min-width: 220px;
+    min-width: 190px;
     max-width: calc(100vw - 32px);
-    padding: 8px 10px;
+    padding: 6px 7px;
   }
 
   .skyline-popup-chart svg {
-    height: 74px;
+    height: 78px;
+  }
+
+  .skyline-popup-card .skyline-popup-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
