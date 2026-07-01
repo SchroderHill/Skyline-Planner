@@ -188,17 +188,14 @@ h1 {
 }
 
 .basemap-section {
-  margin-bottom: 18px;
-  padding: 12px;
-  border: 1px solid #d7ded2;
-  border-radius: 6px;
-  background: #ffffff;
+  margin: 0;
 }
 
 .basemap-picker {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
+  padding: 12px;
 }
 
 .basemap-btn {
@@ -457,14 +454,18 @@ h1 {
   overscroll-behavior: contain;
   min-height: 0;
   height: 100%;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
 :root.is-embedded .panel {
   padding: 10px;
   gap: 8px;
+}
+
+.panel > * {
+  flex-shrink: 0;
 }
 
 .workflow {
@@ -478,6 +479,7 @@ h1 {
 .workflow.workflow--guided {
   position: relative;
   overflow: visible;
+  isolation: isolate;
   box-shadow: 0 10px 24px rgba(20, 32, 45, 0.07);
 }
 
@@ -676,12 +678,68 @@ h1 {
   display: none !important;
 }
 
-.actions-panel {
+.collapsible-section {
+  position: relative;
+  z-index: 1;
+  display: grid;
   margin: 0;
-  padding: 12px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-card);
+  overflow: hidden;
+}
+
+.collapsible-section__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 12px;
+  background: transparent;
+  color: #34403a;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.collapsible-section__summary:hover {
+  background: #f3f8f1;
+  box-shadow: none;
+  transform: none;
+}
+
+.collapsible-section__summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #58705b;
+  border-bottom: 2px solid #58705b;
+  transform: rotate(45deg);
+  transition: transform 0.16s ease;
+}
+
+.collapsible-section.is-open .collapsible-section__summary {
+  border-bottom: 1px solid #e0e7dd;
+}
+
+.collapsible-section.is-open .collapsible-section__summary::after {
+  transform: rotate(225deg);
+}
+
+.collapsible-section__content[hidden] {
+  display: none;
+}
+
+.actions-panel {
+  margin: 0;
 }
 
 .actions {
@@ -689,6 +747,7 @@ h1 {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin: 0;
+  padding: 12px;
 }
 
 .terrain-panel {

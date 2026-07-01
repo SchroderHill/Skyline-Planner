@@ -36,20 +36,22 @@ export function renderApp(root, state, handlers) {
             <button id="assumptions" type="button">Set assumptions</button>
             <button id="calculate" type="button">Calculate</button>
           </div>
-          <section class="actions-panel">
-            <h2>Project Actions</h2>
-            <div class="actions">
-              <button id="assumptionsAction" type="button">Set assumptions</button>
+          <section class="actions-panel collapsible-section">
+            <div id="projectActionsToggle" class="collapsible-section__summary" role="button" tabindex="0" aria-expanded="false" aria-controls="projectActionsContent">Project Actions</div>
+            <div id="projectActionsContent" class="collapsible-section__content" hidden>
+              <div class="actions">
               <button id="drawOptionalArea" type="button">Draw optional area</button>
               <button id="edit">Edit corridors</button>
               <button id="print">Print report</button>
               <button id="exportGeoJson">Export GeoJSON</button>
               <button id="reset" class="danger">Reset project</button>
+              </div>
             </div>
           </section>
-          <section class="basemap-section">
-            <h2>Basemap</h2>
-            <div class="basemap-picker" id="basemapPicker">
+          <section class="basemap-section collapsible-section">
+            <div id="baseMapToggle" class="collapsible-section__summary" role="button" tabindex="0" aria-expanded="false" aria-controls="baseMapContent">Base map</div>
+            <div id="baseMapContent" class="collapsible-section__content" hidden>
+              <div class="basemap-picker" id="basemapPicker">
               <button class="basemap-btn" data-mode="outdoors" title="Mapbox outdoors">
                 <span class="basemap-thumb basemap-thumb--outdoors"></span>
                 <span>Outdoors</span>
@@ -66,6 +68,7 @@ export function renderApp(root, state, handlers) {
                 <span class="basemap-thumb basemap-thumb--sentinel"></span>
                 <span>Sentinel-2</span>
               </button>
+              </div>
             </div>
           </section>
           <section class="terrain-panel">
@@ -163,7 +166,6 @@ export function renderApp(root, state, handlers) {
 
     root.querySelector("#projectName").addEventListener("input", (event) => handlers.rename(event.target.value));
     root.querySelector("#assumptions").addEventListener("click", openAssumptions);
-    root.querySelector("#assumptionsAction").addEventListener("click", openAssumptions);
     root.querySelector("#saveAssumptions").addEventListener("click", () => handlers.saveAssumptions(readForm(dialog)));
     dialog.querySelector("[name=\"landingTowerPreset\"]").addEventListener("change", () => updateTowerHeightFields(dialog));
     root.querySelector("#calculate").addEventListener("click", handlers.calculate);
@@ -172,6 +174,22 @@ export function renderApp(root, state, handlers) {
     root.querySelector("#print").addEventListener("click", handlers.print);
     root.querySelector("#exportGeoJson").addEventListener("click", handlers.exportGeoJson);
     root.querySelector("#reset").addEventListener("click", handlers.reset);
+    root.querySelectorAll("[role=\"button\"].collapsible-section__summary").forEach((toggle) => {
+      const toggleSection = () => {
+        const content = root.querySelector(`#${toggle.getAttribute("aria-controls")}`);
+        if (!content) return;
+        const isOpen = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!isOpen));
+        content.hidden = isOpen;
+        toggle.closest(".collapsible-section")?.classList.toggle("is-open", !isOpen);
+      };
+      toggle.addEventListener("click", toggleSection);
+      toggle.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        toggleSection();
+      });
+    });
     root.querySelector("#workflowSteps").addEventListener("click", (event) => {
       const actionButton = event.target.closest("[data-workflow-action]");
       if (!actionButton || actionButton.disabled) return;
