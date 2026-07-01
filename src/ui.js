@@ -222,7 +222,7 @@ export function renderApp(root, state, handlers) {
       if (removeBtn) handlers.removeUserLayer(removeBtn.dataset.removeLayer);
       if (zoomBtn) handlers.zoomToUserLayer(zoomBtn.dataset.zoomLayer);
     });
-    root.querySelector("#geoPdfOverlaysList").addEventListener("click", (event) => {
+    root.addEventListener("click", (event) => {
       const toggleBtn = event.target.closest("[data-toggle-geopdf]");
       const removeBtn = event.target.closest("[data-remove-geopdf]");
       const zoomBtn = event.target.closest("[data-zoom-geopdf]");
@@ -230,7 +230,7 @@ export function renderApp(root, state, handlers) {
       if (removeBtn) handlers.removeGeoPdfOverlay(removeBtn.dataset.removeGeopdf);
       if (zoomBtn) handlers.zoomToGeoPdfOverlay(zoomBtn.dataset.zoomGeopdf);
     });
-    root.querySelector("#geoPdfOverlaysList").addEventListener("input", (event) => {
+    root.addEventListener("input", (event) => {
       const input = event.target.closest("[data-geopdf-opacity]");
       if (!input) return;
       handlers.setGeoPdfOverlayOpacity(input.dataset.geopdfOpacity, Number(input.value));
@@ -364,9 +364,38 @@ function renderWorkflowSteps(steps) {
         <h3>${escapeHtml(step.label)}</h3>
         <p>${escapeHtml(step.detail)}</p>
         <button class="workflow-step__action" data-workflow-action="${escapeHtml(step.action)}" ${step.enabled ? "" : "disabled"}>${escapeHtml(step.actionLabel)}</button>
+        ${step.supplementHtml ?? ""}
       </div>
     </li>
   `).join("");
+}
+
+function renderWorkflowGeoPdfControls(status, overlays) {
+  const statusHtml = status?.loading || status?.error || status?.message
+    ? `<div class="workflow-geopdf-status">${renderGeoPdfStatus(status)}</div>`
+    : "";
+  if (!overlays.length) return statusHtml;
+
+  const overlaysHtml = overlays.map((overlay) => {
+    const opacity = Number.isFinite(Number(overlay.opacity)) ? Number(overlay.opacity) : 0.65;
+    return `
+      <div class="workflow-geopdf-item">
+        <span class="workflow-geopdf-name" title="${escapeHtml(overlay.name)}">${escapeHtml(overlay.name)}</span>
+        <span class="workflow-geopdf-actions">
+          <button type="button" data-zoom-geopdf="${escapeHtml(overlay.id)}" title="Zoom to GeoPDF overlay">Zoom</button>
+          <button type="button" data-toggle-geopdf="${escapeHtml(overlay.id)}" title="${overlay.visible ? "Hide GeoPDF overlay" : "Show GeoPDF overlay"}">${overlay.visible ? "Hide" : "Show"}</button>
+          <button type="button" data-remove-geopdf="${escapeHtml(overlay.id)}" title="Remove GeoPDF overlay">Remove</button>
+        </span>
+        <label class="workflow-geopdf-opacity" title="GeoPDF opacity">
+          <span>Opacity</span>
+          <input type="range" min="0" max="1" step="0.05" value="${opacity.toFixed(2)}" data-geopdf-opacity="${escapeHtml(overlay.id)}" />
+          <strong>${Math.round(opacity * 100)}%</strong>
+        </label>
+      </div>
+    `;
+  }).join("");
+
+  return `<div class="workflow-geopdf-controls">${statusHtml}${overlaysHtml}</div>`;
 }
 
 function hasAssumptions(assumptions) {
@@ -403,7 +432,8 @@ export function workflowModel(state) {
       optional: true,
       enabled: true,
       action: "import-geopdf",
-      actionLabel: hasGeoPdf ? "Add another GeoPDF" : "Add GeoPDF"
+      actionLabel: hasGeoPdf ? "Add another GeoPDF" : "Add GeoPDF",
+      supplementHtml: renderWorkflowGeoPdfControls(state.geopdfImport, state.geopdfOverlays ?? [])
     },
     {
       label: "Place skid / landing",

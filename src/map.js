@@ -1505,7 +1505,7 @@ function addLegend(container) {
   legend.className = "map-legend";
   legend.innerHTML = `
     <span><i class="legend-green"></i> Clearance</span>
-    <span><i class="legend-red"></i> Below minimum / no lift</span>
+    <span><i class="legend-red"></i> No lift</span>
     <span><i class="legend-setting"></i> Setting</span>
     <span><i class="legend-skid"></i> Skid</span>
   `;

@@ -314,25 +314,26 @@ h1 {
 
 .map-legend {
   position: absolute;
-  left: 8px;
-  bottom: 18px;
+  left: 6px;
+  bottom: 14px;
   z-index: 3;
   display: grid;
-  gap: 3px;
-  min-width: 118px;
-  padding: 6px 7px;
+  grid-template-columns: auto auto;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 5px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid #cbd5c4;
-  border-radius: 5px;
-  box-shadow: 0 5px 14px rgba(23, 32, 51, 0.16);
-  font-size: 9px;
+  border-radius: 4px;
+  box-shadow: 0 3px 9px rgba(23, 32, 51, 0.14);
+  font-size: 7px;
   font-weight: 700;
 }
 
 .map-legend span {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
 }
 
 .map-legend i {
@@ -440,8 +441,8 @@ h1 {
 
 .legend-green,
 .legend-red {
-  width: 18px;
-  height: 3px;
+  width: 11px;
+  height: 2px;
   border-radius: 999px;
 }
 
@@ -454,19 +455,19 @@ h1 {
 }
 
 .legend-setting {
-  width: 12px;
-  height: 8px;
+  width: 8px;
+  height: 5px;
   border: 1px dashed #2f6f35;
   background: rgba(79, 143, 66, 0.18);
 }
 
 .legend-skid {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: #111827;
   border: 1px solid #ffffff;
-  box-shadow: 0 0 0 1px #111827;
+  box-shadow: 0 0 0 0.5px #111827;
 }
 
 .fallback-map {
@@ -679,6 +680,83 @@ h1 {
   font-size: 12px;
   font-weight: 700;
   padding: 0 10px;
+}
+
+.workflow-geopdf-controls {
+  display: grid;
+  gap: 5px;
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid #edf2ea;
+  font-size: 10px;
+}
+
+.workflow-geopdf-status .muted,
+.workflow-geopdf-status .geopdf-error {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.workflow-geopdf-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.workflow-geopdf-name {
+  overflow: hidden;
+  color: #435047;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-geopdf-actions {
+  display: flex;
+  gap: 3px;
+}
+
+.workflow-geopdf-item button {
+  min-height: 22px;
+  padding: 0 4px;
+  border-color: #d4dfd0;
+  border-radius: 5px;
+  background: #fbfdf9;
+  color: #405044;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.workflow-geopdf-item button:hover {
+  background: #eef6eb;
+}
+
+.workflow-geopdf-opacity {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(58px, 0.55fr) auto;
+  align-items: center;
+  gap: 5px;
+  justify-self: end;
+  width: min(100%, 138px);
+  color: #697568;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.workflow-geopdf-opacity input[type="range"] {
+  width: 100%;
+}
+
+.workflow-geopdf-opacity strong {
+  color: #34403a;
+  font-size: 9px;
 }
 
 .workflow-step.current {
