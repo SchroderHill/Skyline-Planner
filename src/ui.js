@@ -363,11 +363,18 @@ function renderWorkflowSteps(steps) {
       <div class="workflow-step__body">
         <h3>${escapeHtml(step.label)}</h3>
         <p>${escapeHtml(step.detail)}</p>
-        <button class="workflow-step__action" data-workflow-action="${escapeHtml(step.action)}" ${step.enabled ? "" : "disabled"}>${escapeHtml(step.actionLabel)}</button>
+        ${renderWorkflowStepAction(step)}
         ${step.supplementHtml ?? ""}
       </div>
     </li>
   `).join("");
+}
+
+function renderWorkflowStepAction(step) {
+  if (step.presentation === "prompt") {
+    return `<span class="workflow-step__prompt">${escapeHtml(step.promptLabel)}</span>`;
+  }
+  return `<button class="workflow-step__action" data-workflow-action="${escapeHtml(step.action)}" ${step.enabled ? "" : "disabled"}>${escapeHtml(step.actionLabel)}</button>`;
 }
 
 function renderWorkflowGeoPdfControls(status, overlays) {
@@ -432,7 +439,9 @@ export function workflowModel(state) {
       optional: true,
       enabled: true,
       action: "import-geopdf",
+      presentation: "button",
       actionLabel: hasGeoPdf ? "Add another GeoPDF" : "Add GeoPDF",
+      promptLabel: hasGeoPdf ? "Optional: add another GeoPDF if needed." : "Optional: import a GeoPDF map overlay.",
       supplementHtml: renderWorkflowGeoPdfControls(state.geopdfImport, state.geopdfOverlays ?? [])
     },
     {
@@ -441,7 +450,9 @@ export function workflowModel(state) {
       complete: hasSkid,
       enabled: true,
       action: "draw-skid",
-      actionLabel: hasSkid ? "Add another skid" : "Start"
+      presentation: "prompt",
+      actionLabel: hasSkid ? "Add another skid" : "Start",
+      promptLabel: hasSkid ? "Prompt: add another skid if the project needs one." : "Prompt: place the skid / landing point."
     },
     {
       label: "Draw skyline corridors",
@@ -449,7 +460,9 @@ export function workflowModel(state) {
       complete: hasCorridors,
       enabled: hasSkid,
       action: "draw-corridor",
-      actionLabel: hasCorridors ? "Add / edit corridors" : "Draw corridor"
+      presentation: "prompt",
+      actionLabel: hasCorridors ? "Add / edit corridors" : "Draw corridor",
+      promptLabel: hasCorridors ? "Prompt: add or edit corridors if the layout changes." : "Prompt: draw at least one skyline corridor."
     },
     {
       label: "Set assumptions",
@@ -457,7 +470,9 @@ export function workflowModel(state) {
       complete: hasSavedAssumptions,
       enabled: hasCorridors,
       action: "open-assumptions",
-      actionLabel: hasSavedAssumptions ? "Review assumptions" : "Set assumptions"
+      presentation: "button",
+      actionLabel: hasSavedAssumptions ? "Review assumptions" : "Set assumptions",
+      promptLabel: hasSavedAssumptions ? "Prompt: review assumptions before final output." : "Prompt: confirm the project assumptions."
     },
     {
       label: hasResults ? "Recalculate and review" : "Calculate",
@@ -465,7 +480,9 @@ export function workflowModel(state) {
       complete: hasResults && !isCalculating,
       enabled: canCalculate,
       action: "calculate",
-      actionLabel: isCalculating ? calculatingLabel : hasResults ? "Recalculate" : "Calculate"
+      presentation: "button",
+      actionLabel: isCalculating ? calculatingLabel : hasResults ? "Recalculate" : "Calculate",
+      promptLabel: isCalculating ? calculatingLabel : hasResults ? "Prompt: recalculate after edits." : "Prompt: run clearance when the setup is ready."
     }
   ];
 

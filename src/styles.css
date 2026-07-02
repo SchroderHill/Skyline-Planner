@@ -682,6 +682,18 @@ h1 {
   padding: 0 10px;
 }
 
+.workflow-step__prompt {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 0 0 0 9px;
+  border-left: 3px solid #9eb8a3;
+  color: #344f3a;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .workflow-geopdf-controls {
   display: grid;
   gap: 5px;
@@ -764,6 +776,11 @@ h1 {
   box-shadow: 0 6px 14px rgba(25, 106, 56, 0.12);
 }
 
+.workflow-step.current .workflow-step__prompt {
+  border-left-color: #1e8f4b;
+  color: #1e6f3e;
+}
+
 .workflow-step.current .workflow-step__action {
   border-color: #1e8f4b;
   background: #1e8f4b;
@@ -782,6 +799,11 @@ h1 {
 
 .workflow-step.blocked {
   opacity: 0.68;
+}
+
+.workflow-step.blocked .workflow-step__prompt {
+  border-left-color: #c0c9bd;
+  color: #6b756a;
 }
 
 .workflow-step.blocked .workflow-step__action {

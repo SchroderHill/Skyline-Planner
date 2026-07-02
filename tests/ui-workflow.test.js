@@ -35,8 +35,27 @@ describe("guided workflow", () => {
       label: "Add GeoPDF",
       optional: true,
       enabled: true,
-      action: "import-geopdf"
+      action: "import-geopdf",
+      presentation: "button"
     });
-    expect(workflow.steps[1]).toMatchObject({ action: "draw-skid", enabled: true, current: true });
+    expect(workflow.steps[1]).toMatchObject({ action: "draw-skid", presentation: "prompt", enabled: true, current: true });
+  });
+
+  it("separates real workflow buttons from visual prompts", () => {
+    const workflow = workflowModel({
+      ...baseState,
+      skids: [[0, 0]],
+      skid: [0, 0],
+      skylines: [{ id: "1", coordinates: [[0, 0], [1, 1]] }],
+      assumptionsTouched: true
+    });
+
+    expect(workflow.steps.map((step) => [step.action, step.presentation])).toEqual([
+      ["import-geopdf", "button"],
+      ["draw-skid", "prompt"],
+      ["draw-corridor", "prompt"],
+      ["open-assumptions", "button"],
+      ["calculate", "button"]
+    ]);
   });
 });
